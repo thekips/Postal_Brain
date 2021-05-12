@@ -2,8 +2,8 @@ import os
 import re
 import yaml
 
-from utils import *
-from cost import Cost
+from .utils import *
+from .cost import Cost
 
 class Data:
     '''
