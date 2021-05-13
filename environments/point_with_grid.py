@@ -12,8 +12,7 @@ from dm_env import specs
 Point = Tuple[int, int]
 
 class GridworldObject(NamedTuple):
-    N: int
-    cost: List[float]
+    location: Tuple(np.double, np.double) 
 
 class GridworldConfig(NamedTuple):
     art: List[str]
@@ -28,9 +27,9 @@ class StandardActions(enum.IntEnum):
     
     def vector(self):
         return (
-            (-1, -1), (-1, 0), (-1, 1),
-            ( 0, -1), ( 0, 0), ( 0, 1),
-            ( 1, -1), ( 1, 0), ( 1, 1),
+            (-0.1, -0.1), (-0.1, 0.0), (-0.1, 0.1),
+            ( 0.0, -0.1), ( 0.0, 0.0), ( 0.0, 0.1),
+            ( 0.1, -0.1), ( 0.1, 0.0), ( 0.1, 0.1),
         )[int(self)]
     @staticmethod
     def num_values():

@@ -6,13 +6,9 @@ import time
 from utils import makeDir, readCX, latlng2_manhattan_distance
 
 class Cost:
-    def __init__(self, velocity, ratio, noToName, noToLat, noToLng, id2Name):
+    def __init__(self, velocity, ratio):
         self.velocity = velocity
         self.ratio = ratio
-        self.noToName = noToName
-        self.noToLat = noToLat
-        self.noToLng = noToLng
-        self.id2Name = id2Name
         self.res = self.emptyRes() # 初始化每个部门的字典
 
         self.lanshou = readCX('data/lanshou_.csv')
@@ -26,6 +22,24 @@ class Cost:
         del self.toudi        
         print("读取完成，揽投数据共%d条记录" % len(self.all))
        
+    def genDict(self):
+        '''
+        生成机构代码到机构简称、经纬度的映射和代价计算结果的映射
+        '''
+        self.noToName = {} # 机构代码到机构简称
+        self.noToLat = {} # 机构代码到机构纬度
+        self.noToLng = {} # 机构代码到机构经度
+        self.noToRes = {} # 机构代码到结果
+
+        records = readCX(self.department)
+        for record in records[['机构代码','机构简称']].values:
+            self.noToName[record[0]] = record[1]
+
+        records = readCX(self.select)
+        for record in records[['机构代码','lat','lng']].values:
+            self.noToLat[record[0]] = record[1]
+            self.noToLng[record[0]] = record[2]
+
     #计算时间代价用到的函数
     def emptyRes(self):
         '''
