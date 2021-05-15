@@ -1,13 +1,14 @@
 import enum
-from abc import abstractmethod
-from typing import Any, List, NamedTuple, Tuple
-
+from utils.cost import Cost
 import matplotlib.pyplot as plt
-from PIL import Image
-from lrla.environments import base
 import dm_env
 import numpy as np
+from abc import abstractmethod
+from typing import Any, List, NamedTuple, Tuple
+from PIL import Image
 from dm_env import specs
+
+from environments import base
 
 Point = Tuple[int, int]
 
@@ -102,21 +103,19 @@ class Gridworld(base.Environment):
         self._timestep += 1
 
         ## update agent
-        reward = 0.0
-        vector = Actions(action).vector()
-        location = (
-            max(0, min(self._agent_location[0] + vector[0], self.shape[0])),
-            max(0, min(self._agent_location[1] + vector[1], self.shape[1])),
-        )
+        for _object in self.objects:
+            reward = 0.0
+            vector = Actions(action).vector()
+            location = (
+                max(0, min(self._agent_location[0] + vector[0], self.shape[0])),
+                max(0, min(self._agent_location[1] + vector[1], self.shape[1])),
+            )
 
-        # set new agent position
-        reward = self.objects[location[0] * self.shape[1] + location[1]]
-        self.art[self._agent_location] = " "
-        self.art[location] = "P"
-        self._agent_location = location
+            # set new agent position
+            _object.location = location
 
         # compute reward by the cost
-        reward -= self.objects[location[0] * self.shape[1] + location[1]]
+        reward = 
 
         # 增加到最大步数时结束
         if self._timestep == self.max_steps:

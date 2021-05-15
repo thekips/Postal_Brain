@@ -1,54 +1,27 @@
 import csv
+from typing import Dict
 import numpy as np
 import pandas as pd
-import time
 
-from utils import makeDir, readCX, latlng2_manhattan_distance
+from utils.get_info import *
+from utils.utils import *
 
-class Cost:
-    def __init__(self, velocity, ratio):
-        self.velocity = velocity
-        self.ratio = ratio
-        self.res = self.emptyRes() # 初始化每个部门的字典
+class Cost(object):
+    def __init__(self, velocity, ratio) -> None:
+        super().__init__()
 
-        self.lanshou = readCX('data/lanshou_.csv')
-        self.toudi = readCX('data/toudi_.csv')
-        print("读取完成，揽收数据共%d条记录，投递数据共%d条记录" %(len(self.lanshou),len(self.toudi)))
+        self.env_info = EnvInfo()
+
+        self.lanshou = read_cx('data/lanshou_.csv')
+        self.toudi = read_cx('data/toudi_.csv')
+        print("have read %d lanshou records and %d toudi records." % (len(self.lanshou), len(self.toudi)))
         
-        # 合并揽收，投递数据
+        # merge lanshou data and toudi data. 
         self.all = self.lanshou[['投递日期','邮件号','业务种类','分类','重量','投递机构','投递员','投递地址','lng','lat','type','dist','cost','id']]
         self.all =self.all.append(self.toudi[['投递日期','邮件号','业务种类','分类','重量','投递机构','投递员','投递地址','lng','lat','type','dist','cost','id']]).reset_index()
         del self.lanshou
-        del self.toudi        
-        print("读取完成，揽投数据共%d条记录" % len(self.all))
-       
-    def genDict(self):
-        '''
-        生成机构代码到机构简称、经纬度的映射和代价计算结果的映射
-        '''
-        self.noToName = {} # 机构代码到机构简称
-        self.noToLat = {} # 机构代码到机构纬度
-        self.noToLng = {} # 机构代码到机构经度
-        self.noToRes = {} # 机构代码到结果
-
-        records = readCX(self.department)
-        for record in records[['机构代码','机构简称']].values:
-            self.noToName[record[0]] = record[1]
-
-        records = readCX(self.select)
-        for record in records[['机构代码','lat','lng']].values:
-            self.noToLat[record[0]] = record[1]
-            self.noToLng[record[0]] = record[2]
-
-    #计算时间代价用到的函数
-    def emptyRes(self):
-        '''
-        初始化res字典，装载所有机构代码
-        '''
-        res = {}
-        for key in self.noToName.keys():
-            res[key] = {}
-        return res
+        del self.toudi
+        print("have read %d records" % len(self.all))
 
     def func1(self, x):
         '''
@@ -65,6 +38,7 @@ class Cost:
     def updateDist(self, data, path):
         '''
         以智能体的当前状态的经纬度为依据，计算data中每条记录到其对应机构的距离,存至'dist'列
+        use the new location of agent(department) to calculate the dist between record address to its relative department.
 
         参数：
         data -- 需要处理的数据
@@ -72,7 +46,7 @@ class Cost:
         返回：
         计算完每条记录至记录对应机构的曼哈顿距离的data
         '''
-        departments = readCX(path)
+        departments = read_cx(path)
         departments = departments[['机构代码','lat','lng']]
 
         data['dist'] = ''
@@ -131,29 +105,19 @@ class Cost:
         
         return sum, dist
 
-    def calCost(self, x):
+    def calCost(self) -> Dict:
         '''
-        计算某投递机构某投递员在某个上/下午的揽收、投递、总时间代价（和距离）
+        计算投递机构的总时间代价（和距离）
         '''
-        dep_name, date = x[['投递机构','投递员','投递日期']][:1].values[0]
-        
-        self.res[dep_name][date]['cost'], self.res[dep_name][date]['dist'] = self.calSemiCost(x)
+        cost = {}
+        dist = {}
 
-    def calRes(self, path=''):
-        '''
-        计算代价并将结果保存至csv文件中
-        保存在'_man.csv'和'_all.csv'两个文件中
+        # 用于批量处理数据的lambda函数
+        def _calCost(x): 
+            dep_name = x[['投递机构']][:1].values[0]
+            cost[dep_name], dist[dep_name] = self.calSemiCost(x)
 
-        参数：
-        path -- 机构坐标点文件路径
-        '''
+        # print("计算每个机构的代价...")
+        self.all.grouby(by=['投递机构']).apply(_calCost) #计算代价
 
-        # 更新距离信息
-        if path != '':
-            self.lanshou = self.updateDist(self.lanshou, path)
-            self.toudi = self.updateDist(self.toudi, path)
-            
-        # 计算每个机构的代价
-        print("计算每个机构的代价...")
-        self.all[['投递机构']].groupby(by=['投递机构']).apply(self.emptyDep) #初始化每个机构的字典
-        self.all.grouby(by=['投递机构','投递日期']).apply(self.calCost) #计算代价
+        return cost
