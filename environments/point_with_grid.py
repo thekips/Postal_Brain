@@ -70,6 +70,7 @@ class Gridworld(base.Environment):
         self.max_steps = game_config.max_steps
         self.discount = game_config.discount
         self.shape = (len(game_config.art), len(game_config.art[0]))
+        self.cost = Cost()
 
         self.bsuite_num_episodes = 10
 
@@ -115,7 +116,7 @@ class Gridworld(base.Environment):
             _object.location = location
 
         # compute reward by the cost
-        reward = 
+        reward = self.cost.calCost(self.objects.)
 
         # 增加到最大步数时结束
         if self._timestep == self.max_steps:

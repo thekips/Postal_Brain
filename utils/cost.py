@@ -7,41 +7,30 @@ from utils.get_info import *
 from utils.utils import *
 
 class Cost(object):
-    def __init__(self, velocity, ratio) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
-        self.env_info = EnvInfo()
+        env_info = EnvInfo()
+        self._velocity = env_info.velocity
+        self._ratio = env_info.ratio
+        self._data = read_cx('data/data_.csv')
+        print("have read %d records" % len(self._data))
 
-        self.lanshou = read_cx('data/lanshou_.csv')
-        self.toudi = read_cx('data/toudi_.csv')
-        print("have read %d lanshou records and %d toudi records." % (len(self.lanshou), len(self.toudi)))
-        
-        # merge lanshou data and toudi data. 
-        self.all = self.lanshou[['投递日期','邮件号','业务种类','分类','重量','投递机构','投递员','投递地址','lng','lat','type','dist','cost','id']]
-        self.all =self.all.append(self.toudi[['投递日期','邮件号','业务种类','分类','重量','投递机构','投递员','投递地址','lng','lat','type','dist','cost','id']]).reset_index()
-        del self.lanshou
-        del self.toudi
-        print("have read %d records" % len(self.all))
-
-    def func1(self, x):
+    def __func1(self, x) -> np.float64:
         '''
         衰减函数1
         '''
         return np.log2(x + 1) / x
 
-    def func2(self, x):
+    def __func2(self, x) -> np.float64:
         '''
         衰减函数2
         '''
         return 1 / (55 + np.log(x))
 
-    def updateDist(self, data, path):
+    def __update_dist(self):
         '''
-        以智能体的当前状态的经纬度为依据，计算data中每条记录到其对应机构的距离,存至'dist'列
-        use the new location of agent(department) to calculate the dist between record address to its relative department.
-
-        参数：
-        data -- 需要处理的数据
+        use the new location of agent(department) to calculate the dist between record address to its corresponding department.
 
         返回：
         计算完每条记录至记录对应机构的曼哈顿距离的data
@@ -57,9 +46,9 @@ class Cost(object):
         
         return data
 
-    def calSemiCost(self, x):
+    def __cal_semi_cost(self, x):
         '''
-        计算某投递机构一个投递员在某个上/下午的时间代价
+        calculate the cost with input x, and the cost consists of deliver cost and shift cost.
 
         参数：
         x -- 需要处理的某个上/下午的数据
@@ -70,14 +59,14 @@ class Cost(object):
         '''
         if len(x) <= 0: return 0, 0
         
-        # 分组，并计算每个组（每个地点所有件）的代价和计数
+        # group by lng and lat to use discount fuction separately.
         group = x[['lng', 'lat', 'cost']].groupby(['lng', 'lat'])
         cost = group.sum()['cost'].values
         count = group.count()['cost'].values.astype(np.float64)
         # 对count进行分段的衰减函数处理
-        count = np.piecewise(count, [count < 30, count >= 30], [self.func1, self.func2]) # 分段对件数进行衰减
+        count = np.piecewise(count, [count < 30, count >= 30], [self.__func1, self.__func2]) # 分段对件数进行衰减
         # 基础时间+衰减后的时间代价
-        sum = (count < 30).sum() / 30 + np.sum(count * cost, axis=0) / self.ratio # 数字太大，除以ratio，近似到每件3min
+        sum = (count < 30).sum() / 30 + np.sum(count * cost, axis=0) / self._ratio # 数字太大，除以ratio，近似到每件3min
         
         # 计算通勤时间代价
         x_ = x.drop_duplicates(subset=['lng','lat'],keep='first',inplace=False)
@@ -105,19 +94,19 @@ class Cost(object):
         
         return sum, dist
 
-    def calCost(self) -> Dict:
+    def cal_cost(self) -> Dict:
         '''
         计算投递机构的总时间代价（和距离）
         '''
         cost = {}
         dist = {}
 
-        # 用于批量处理数据的lambda函数
-        def _calCost(x): 
+        def cal_cost_lambda(x): 
             dep_name = x[['投递机构']][:1].values[0]
-            cost[dep_name], dist[dep_name] = self.calSemiCost(x)
+            cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
-        # print("计算每个机构的代价...")
-        self.all.grouby(by=['投递机构']).apply(_calCost) #计算代价
+        # calculate every department's cost separately.
+        self.__update_dist()
+        self.all.grouby(by=['投递机构']).apply(cal_cost_lambda)
 
         return cost
