@@ -1,3 +1,6 @@
+from pandas.core.frame import DataFrame
+from environments.base import WorldObject
+from typing import Tuple
 import numpy as np
 import pandas as pd
 
@@ -17,16 +20,16 @@ def read_csv(path, low_memory=False):
     except:
         return pd.read_csv(path,low_memory=low_memory)
 
-def read_cx(path):
+def read_cx(path) -> DataFrame:
     '''
     读取csv或者excel文件
     '''
     try:
-        return read_csv(path)
+        return pd.read_csv(path)
     except:
         return pd.read_excel(path)
 
-def latlng2_manhattan_distance(loc1, loc2):
+def location_to_manhattan(loc1, loc2):
     '''
     计算loc1与loc2之间的曼哈顿距离
 

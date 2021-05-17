@@ -1,5 +1,4 @@
 import enum
-from utils.cost import Cost
 import matplotlib.pyplot as plt
 import dm_env
 import numpy as np
@@ -9,60 +8,22 @@ from PIL import Image
 from dm_env import specs
 
 from environments import base
+from utils.cost import Cost
 
 Point = Tuple[int, int]
 
-class GridworldObject(NamedTuple):
-    location: Tuple(np.double, np.double) 
+Actions = base.StandardActions
 
-class GridworldConfig(NamedTuple):
-    art: List[str]
-    objects: Tuple[GridworldObject]
-    max_steps: int
-    discount: float = 0.99
-
-class StandardActions(enum.IntEnum):
-    NORTHWEST = 0; NORTH = 1; NORTHEAST = 2
-    WEST = 3;      NONE = 4;  EAST = 5
-    SOUTHWEST = 6; SOUTH = 7; SOUTHEAST = 8
-    
-    def vector(self):
-        return (
-            (-0.1, -0.1), (-0.1, 0.0), (-0.1, 0.1),
-            ( 0.0, -0.1), ( 0.0, 0.0), ( 0.0, 0.1),
-            ( 0.1, -0.1), ( 0.1, 0.0), ( 0.1, 0.1),
-        )[int(self)]
-    @staticmethod
-    def num_values():
-        return 9
-
-class SmallActions(enum.IntEnum):
-    RIGHT = 0
-    UP = 1
-    LEFT = 2
-    DOWN = 3
-
-    def vector(self):
-        return (
-            (0, 1), (1, 0), (0, -1), (-1, 0)
-        )[int(self)]
-    
-    @staticmethod
-    def num_values():
-        return 4
-
-Actions = StandardActions
-
-class Gridworld(base.Environment):
+class World(base.Environment):
     def __init__(
         self,
-        game_config: GridworldConfig,
+        game_config: base.WorldConfig,
         seed: int = None,
         n_action: int = 9
     ):
-        super(Gridworld, self).__init__()
+        super(World, self).__init__()
         if n_action == 4:
-            Actions = SmallActions
+            Actions = base.SmallActions
 
         # public:
         self.art = None
@@ -83,7 +44,7 @@ class Gridworld(base.Environment):
         # self._plot = plt.imshow(np.empty(self.shape))
         
         self._agent_location = None
-        self._object_locations = dict()
+        self.object_locations = dict()
 
         self._reset()
 
@@ -104,7 +65,8 @@ class Gridworld(base.Environment):
         self._timestep += 1
 
         ## update agent
-        for _object in self.objects:
+        obj_location = {}   # save instant location of departments.
+        for object in self.objects:
             reward = 0.0
             vector = Actions(action).vector()
             location = (
@@ -113,10 +75,12 @@ class Gridworld(base.Environment):
             )
 
             # set new agent position
-            _object.location = location
+            object.location = location
+            obj_location[object.no] = object.location
 
         # compute reward by the cost
-        reward = self.cost.calCost(self.objects.)
+        cost = self.cost.cal_cost(obj_location)
+        reward = sum(cost.values)
 
         # 增加到最大步数时结束
         if self._timestep == self.max_steps:
@@ -210,8 +174,8 @@ class Gridworld(base.Environment):
         return {}
 
 
-class TabularGridworld(Gridworld):
-    # def __init__(self, game_config: GridworldConfig, seed: int = None):
+class TabularWorld(World):
+    # def __init__(self, game_config: WorldConfig, seed: int = None):
     #     super().__init__(game_config, seed=seed)    
 
     def _get_observation(self) -> Any:
@@ -223,16 +187,16 @@ class TabularGridworld(Gridworld):
         num_values = self.shape[0] * self.shape[1]
         return specs.DiscreteArray(num_values=num_values, name="observation")
 
-    def _fix_object_locations(self) -> None:
-        self._object_locations = {obj.symbol: [] for obj in self.objects}
+    def _fixobject_locations(self) -> None:
+        self.object_locations = {obj.symbol: [] for obj in self.objects}
         for obj in self.objects:
             for _ in range(obj.N):
                 location = self.empty_point()
-                self._object_locations[obj.symbol].append(location)
+                self.object_locations[obj.symbol].append(location)
                 self.art[location] = obj.symbol
         return
 
-VERY_DENSE = GridworldConfig(
+VERY_DENSE = base.WorldConfig(
     art=[
         "#############"
         "#           #"
@@ -250,7 +214,7 @@ VERY_DENSE = GridworldConfig(
     ],
     objects=tuple(
         map(
-            lambda x: GridworldObject(*x),
+            lambda x: base.WorldObject(*x),
             [
                 (1, 1.0, 0.0, 1.0, " "),
             ],
