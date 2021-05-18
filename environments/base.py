@@ -33,7 +33,6 @@ import numpy as np
 
 import dm_env
 
-
 class Environment(dm_env.Environment, abc.ABC):
   """Base clas for bsuite environments.
 

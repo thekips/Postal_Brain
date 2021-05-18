@@ -1,19 +1,18 @@
 from pandas.core.frame import DataFrame
 from environments.base import WorldObject
-from typing import Tuple
 import numpy as np
 import pandas as pd
 
-def read_csv(path, low_memory=False):
+def read_csv(path, low_memory=False) -> DataFrame:
     '''
-    读取csv文件
+    read a csv file with encoding=gb18030.
 
-    参数：
-    path -- 需要读取文件的路径
-    low_memory -- 是否以低内存形式读取：True代表是，False代表否
+    Args：
+        path: the path of csv file.
+        low_memory: whether read file in low_memory mode.
 
-    返回：
-    包含csv文件的dataframe对象
+    Returns:
+        A dataframe object which include the content of file with the given path.
     '''
     try:
         return pd.read_csv(path,encoding='gb18030',low_memory=low_memory)
@@ -22,7 +21,13 @@ def read_csv(path, low_memory=False):
 
 def read_cx(path) -> DataFrame:
     '''
-    读取csv或者excel文件
+    Read a csv file or excel file like '.xlsx', '.xls'.
+
+    Args:
+        path: the path of csv file or excel file.
+
+    Returns:
+        A dataframe object which include the content of file with the given path.
     '''
     try:
         return pd.read_csv(path)
@@ -31,24 +36,22 @@ def read_cx(path) -> DataFrame:
 
 def location_to_manhattan(loc1, loc2):
     '''
-    计算loc1与loc2之间的曼哈顿距离
+    caculate distance between loc1 and loc2.
 
-    参数：
-    loc1 -- 含经纬度的array
-    loc2 -- 含经纬度的array
+    Args：
+        loc1: A array, list or tuple include location pair.
+        loc2: A array, list or tuple include location pair.
 
-    返回：
-    c -- loc1与loc2之间的曼哈顿距离
+    Returns：
+        dist: manhattan distance between loc1 and loc2.
     '''
-    lat_lon_1 = np.radians(loc1)
-    lat_lon_2 = np.radians(loc2)
-    d_lat_lon = np.abs(lat_lon_1- lat_lon_2)
+    d_lat_lon = np.abs(np.radians(loc1) - np.radians(loc2))
     
     r = 6373.0
     a_lat_lon = np.sin(d_lat_lon / 2.0) **2
-    c = 2 * np.arctan2(np.sqrt(a_lat_lon), np.sqrt(1 - a_lat_lon))
-    c = r * c
-    c = c.reshape(-1,2)
-    c = np.sum(c, axis=1)
+    distance = 2 * np.arctan2(np.sqrt(a_lat_lon), np.sqrt(1 - a_lat_lon))
+    distance = r * distance
+    distance = distance.reshape(-1,2)
+    distance = np.sum(distance, axis=1)
     
-    return c
+    return distance if len(distance) > 1 else distance[0]
