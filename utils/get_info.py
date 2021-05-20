@@ -1,4 +1,5 @@
 from typing import Dict
+from numpy import float64
 import yaml
 
 from utils.utils import *
@@ -12,13 +13,15 @@ class DepInfo(object):
         no_to_location: A Dict from department no to department location.
     '''
 
+    no_to_name: dict
+    no_to_location: dict
+
     def __init__(self) -> None:
         super().__init__()
         # read location of original department's information from config.yaml.
         with open('config.yaml', 'r', encoding='utf-8') as f:
             department = yaml.safe_load(f)['department']
-        self.no_to_name = {}
-        self.no_to_location = {}
+
         records = read_cx(department)
         for record in records[['机构代码','机构简称','lat','lng']].values:
             self.no_to_name[record[0]] = record[1]
@@ -32,6 +35,9 @@ class EnvInfo(object):
        velocity: A float representing postman's delivering velocity.
        ratio: A float used to transform weight to hour. 
     '''
+
+    velocity: float64
+    ratio: float64
 
     def __init__(self) -> None:
         super().__init__()
