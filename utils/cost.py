@@ -106,8 +106,8 @@ class Cost(object):
         Returns:
             A Dict from deparment's name to department's instant cost.
         '''
-        cost = {}
-        dist = {}
+        cost: dict
+        dist: dict
 
         def in_cal_cost(x):
             dep_name = x[['投递机构']][:1].values[0]
