@@ -3,7 +3,6 @@ import dm_env
 
 Action = int  # Only discrete-action agents for now.
 
-
 class Agent(abc.ABC):
   """An agent consists of an action-selection mechanism and an update rule."""
 

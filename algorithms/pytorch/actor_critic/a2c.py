@@ -1,9 +1,11 @@
 # Built-in Library
-from typing import Sequence, Dict
+from re import I
+from typing import OrderedDict, Sequence, Dict
 
 # External Imports.
 import dm_env
 from dm_env import specs
+from torch.distributions.categorical import Categorical
 import tree
 
 import numpy as np
@@ -16,7 +18,6 @@ import torch.nn.functional as F
 from algorithms import base
 from algorithms.utils import sequence
 
-
 class A2C(base.Agent):
     """A simple TensorFlow-based feedforward actor-critic implementation."""
 
@@ -24,17 +25,12 @@ class A2C(base.Agent):
             self,
             obs_spec: specs.Array,
             action_spec: specs.Array,
+            max_sequence_length: int,
             network: 'PolicyValueNet',
             learning_rate: float,
-            max_sequence_length: int,
             discount: float,
-            seed: int = None,
     ):
         """A simple actor-critic agent."""
-
-        # Internalise hyperparameters.
-
-        # random.set_seed(seed)
 
         self._discount = discount
 
@@ -45,17 +41,25 @@ class A2C(base.Agent):
         # Create windowed buffer for learning from trajectories.
         self._buffer = sequence.Buffer(obs_spec, action_spec, max_sequence_length)
 
+    def __compute_returns(self, final_value, rewards, discounts):
+        value = final_value
+        returns = []
+        for step in reversed(range(len(rewards))):
+            value = rewards[step] + self._discount * value * discounts[step]
+            returns.insert(0, value)
+        return returns
+
+
     def _sample_policy(self, inputs: torch.tensor) -> torch.tensor:
         ''' 这个函数为 select_action 准备 '''
-        policy, _ = self._network(inputs)
-        action_probs = F.softmax(policy, dim=1)
-        action = action_probs.multinomial(num_samples=1)
+        policy, _ = self._network(inputs)  # TODO(thekips): should be self._network.forward(inputs)
+        dist = F.softmax(policy, dim=1)
+        action = dist.multinomial(num_samples=1)
 
         return action
 
     def _step(self, trajectory: sequence.Trajectory):
         """Do a batch of SGD on the actor + critic loss."""
-        # 这里的 trajectory 已经是torch.tensor格式
         observations, actions, rewards, discounts = trajectory
 
         # Add dummy batch dimensions.
@@ -63,24 +67,29 @@ class A2C(base.Agent):
         discounts = torch.unsqueeze(discounts, dim=-1)  # [T, 1]
         observations = torch.unsqueeze(observations, dim=1)  # [T+1, 1, ...]
 
-        # Extract final observation for bootstrapping.
+        # calculate values by the value network.
         observations, final_observation = observations[:-1], observations[-1]
-
-        # 计算损失函数, actor 和 critic 的 loss
         policies, values = self._network(observations)
-        _, bootstrap_value = self._network(final_observation)
+        _, final_value = self._network(final_observation)
+        values = torch.cat(values)
 
-        log_probs = F.log_softmax(policies, dim=1)
-        # 这里需要转换一下维度
-        actions_log_probs = log_probs.gather(1, actions)
-        probs = F.softmax(policies, dim=1)
+        # calculate the log probility of actions.
+        dists = Categorical(policies)
+        log_probs = dists.log_prob(actions)
+        log_probs = torch.cat(log_probs)
 
-        critic_loss = []
-        actor_loss = []
+        # calculate actual values by the trajectory. 
+        returns = self.__compute_returns(final_value, rewards, discounts)
+        returns = torch.cat(returns).detach()
 
-        loss = critic_loss - actor_loss
+        advantage = returns - values
 
-        # 更新参数
+        # compute loss.
+        actor_loss = -(advantage.detach() * log_probs).mean()
+        critic_loss = advantage.pow(2).mean()
+        loss = actor_loss + 0.5 * critic_loss
+
+        # update parameter.
         self._network.train()
         self._optimizer.zero_grad()
         loss.backward()
@@ -93,7 +102,9 @@ class A2C(base.Agent):
         obs_tensor = torch.tensor(timestep.observation, dtype=torch.double)
         # 可能是增加一维，以备网络的批处理
         observation = torch.unsqueeze(obs_tensor, dim=0)
-        action = self._sample_policy(observation)
+        policy, _ = self._network(observation)  # TODO(thekips): should be self._network.forward(inputs)
+        dist = F.softmax(policy, dim=1)
+        action = dist.multinomial(num_samples=1)
 
         return action.numpy()
 
@@ -150,10 +161,10 @@ class PolicyValueNet(nn.Module):
         self.hidden_size = conv_Layers[-1] * H * W
 
         # 中间的全连接层
-        self.fc_layer = nn.Sequential()
-
-        self.fc_layer.add_module('fc0', nn.Linear(self.hidden_size, dense_sizes[0]))
-        self.fc_layer.add_module('relu', nn.ReLU())
+        self.fc_layer = nn.Sequential(OrderedDict([
+            ('fc0', nn.Linear(self.hidden_size, dense_sizes[0])),
+            ('relu', nn.ReLU())
+        ]))
 
         for i in range(len(dense_sizes)-1):
             self.fc_layer.add_module('fc'+str(i+1), nn.Linear(dense_sizes[i], dense_sizes[i+1]))
@@ -179,7 +190,6 @@ class PolicyValueNet(nn.Module):
     def num_flat_features(self, x):
         size = x.size()[1:]
 
-# Generate default agent 
 def default_agent(
         obs_spec: specs.Array,
         action_spec: specs.DiscreteArray,

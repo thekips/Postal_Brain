@@ -1,3 +1,4 @@
+from algorithms.base import Action
 import matplotlib.pyplot as plt
 import dm_env
 import numpy as np
@@ -21,6 +22,7 @@ class World(base.Environment):
         n_action: int = 9
     ):
         super(World, self).__init__()
+        global Actions
         if n_action == 4:
             Actions = base.SmallActions
 
