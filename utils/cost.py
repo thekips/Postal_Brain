@@ -1,15 +1,15 @@
-from typing import Dict, Tuple
+from typing import Dict, List
+from environments.world import Point
 import numpy as np
 import pandas as pd
 
-from utils.get_info import *
+from utils.info import env_info 
 from utils.utils import *
 
 class Cost(object):
     def __init__(self) -> None:
         super().__init__()
 
-        env_info = EnvInfo()
         self._velocity = env_info.velocity
         self._ratio = env_info.ratio
         self._data = read_cx('data/data_.csv')
@@ -118,3 +118,17 @@ class Cost(object):
         self._data.grouby(by=['投递机构']).apply(in_cal_cost)
 
         return cost
+    
+    def get_obj(self) -> Dict[str, List[Point]]: 
+        obj_location = {}
+
+        def gen_dict(x):
+            key = x.投递机构.unique()[0]
+            value = [*zip(x.lat.values, x.lng.values)]
+            obj_location[key] = value
+            
+        self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
+        return obj_location
+
+    def num_obj(self) -> int:
+        return len(self._data)

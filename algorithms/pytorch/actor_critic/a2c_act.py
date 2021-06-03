@@ -49,7 +49,6 @@ class A2C(base.Agent):
             returns.insert(0, value)
         return returns
 
-
     def _sample_policy(self, inputs: torch.tensor) -> torch.tensor:
         ''' 这个函数为 select_action 准备 '''
         policy, _ = self._network(inputs)  # TODO(thekips): should be self._network.forward(inputs)
@@ -124,15 +123,38 @@ class A2C(base.Agent):
             trajectory = tree.map_structure(torch.tensor, trajectory)
             self._step(trajectory)
 
+class PolicyValueNet(nn.Module):
+    def __init__(
+        self,
+        action_spec: specs.DiscreteArray,
+        hidden_sizes: Sequence[int]
+    ):
+        super(PolicyValueNet, self).__init__()
+        self._fc_layer = nn.Sequential()
+        self._policy_head = nn.Linear(hidden_sizes[-1], action_spec.num_values)
+        self._value_head = nn.Linear(hidden_sizes[-1], 1)
 
+        for i in range(len(hidden_sizes) - 1):
+            self._fc_layer.add_module('fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
+            self._fc_layer.add_module('relu'+str(i), nn.ReLU())
+
+    def forward(self, x):
+        x = self._fc_layer(x)
+        policies = self._policy_head(x)      
+        value = self._value_head(x)
+
+        return policies, value
+
+
+'''
 class PolicyValueNet(nn.Module):
     """A simple conv neural networks with a value and a policy head."""
 
     def __init__(
-            self,
-            obs_spec: specs.Array,
-            action_spec: specs.DiscreteArray,
-            hidden_sizes: Dict[str, Sequence[int]] = {'Conv': (16,), 'Dense': (32,)}
+        self,
+        obs_spec: specs.Array,
+        action_spec: specs.DiscreteArray,
+        hidden_sizes: Dict[str, Sequence[int]] = {'Conv': (16,), 'Dense': (32,)}
     ):
 
         super(PolicyValueNet, self).__init__()
@@ -178,7 +200,6 @@ class PolicyValueNet(nn.Module):
         print(self.fc_layer)
 
     def forward(self, inputs):
-
         x = self.conv_layer(inputs)
         x.view(x[0], -1)
         x = self.fc_layer(x)
@@ -186,28 +207,4 @@ class PolicyValueNet(nn.Module):
         policy = self._policy_head(x)
 
         return policy, value
-
-    def num_flat_features(self, x):
-        size = x.size()[1:]
-
-def default_agent(
-        obs_spec: specs.Array,
-        action_spec: specs.DiscreteArray,
-        hidden_sizes: Dict[str, Sequence[int]] = {'Conv': (16), 'Dense': (32)}
-) -> base.Agent:
-    """Initialize a DQN agent with default parameters."""
-    network = PolicyValueNet(
-        hidden_sizes=hidden_sizes,
-        action_spec=action_spec,
-    )
-
-    return A2C(
-        obs_spec=obs_spec,
-        action_spec=action_spec,
-        network=network,
-        learning_rate=3e-3,
-        max_sequence_length=32,
-        td_lambda=0.9,
-        discount=0.99,
-        seed=42,
-    )
+'''

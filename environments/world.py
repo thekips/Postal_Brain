@@ -1,3 +1,4 @@
+import enum
 from algorithms.base import Action
 import matplotlib.pyplot as plt
 import dm_env
@@ -8,31 +9,60 @@ from PIL import Image
 from dm_env import specs
 
 from environments import base
-from utils.cost import Cost
+from utils.info import cost, env_info
 
-Point = Tuple[int, int]
+Point = Tuple[float, float]
 
-Actions = base.StandardActions
+class StandardActions(enum.IntEnum):
+    NORTHWEST = 0; NORTH = 1; NORTHEAST = 2
+    WEST = 3;      NONE = 4;  EAST = 5
+    SOUTHWEST = 6; SOUTH = 7; SOUTHEAST = 8
+    
+    def vector(self):
+        return (
+            (-0.1, -0.1), (-0.1, 0.0), (-0.1, 0.1),
+            ( 0.0, -0.1), ( 0.0, 0.0), ( 0.0, 0.1),
+            ( 0.1, -0.1), ( 0.1, 0.0), ( 0.1, 0.1),
+        )[int(self)]
+    @staticmethod
+    def num_values():
+        return 9
+
+class SmallActions(enum.IntEnum):
+    RIGHT = 0
+    UP = 1
+    LEFT = 2
+    DOWN = 3
+
+    def vector(self):
+        return (
+            (0, 1), (1, 0), (0, -1), (-1, 0)
+        )[int(self)]
+    
+    @staticmethod
+    def num_values():
+        return 4
+
+Actions = StandardActions
 
 class World(base.Environment):
     def __init__(
         self,
-        game_config: base.WorldConfig,
+        max_steps,
+        discount,
         seed: int = None,
         n_action: int = 9
     ):
         super(World, self).__init__()
         global Actions
         if n_action == 4:
-            Actions = base.SmallActions
+            Actions = SmallActions
 
         # public:
         self.art = None
-        self.objects = game_config.objects
-        self.max_steps = game_config.max_steps
-        self.discount = game_config.discount
-        self.shape = (len(game_config.art), len(game_config.art[0]))
-        self.cost = Cost()
+        self.objects = cost.get_obj()
+        self.max_steps = max_steps
+        self.discount = discount
 
         self.bsuite_num_episodes = 10
 
@@ -44,14 +74,15 @@ class World(base.Environment):
         
         # self._plot = plt.imshow(np.empty(self.shape))
         
-        self._agent_location = None
-        self.object_locations = dict()
+        self._agent_location = env_info.no_to_location 
+        self._object_location = cost.get_obj()
 
         self._reset()
 
     @abstractmethod
     def _get_observation(self) -> Any:
-        raise NotImplementedError
+        # TODO(thekips): make more agent when program can run.
+        return (self._agent_location['52900009'], self._object_location['52900009'])
 
     def _reset(self) -> dm_env.TimeStep:
         self.art = self._art.copy()
@@ -143,21 +174,10 @@ class World(base.Environment):
 
     @abstractmethod
     def observation_spec(self) -> specs.Array:
-        raise NotImplementedError
+        return specs.DiscreteArray(cost.num_obj(), name="observation")
 
     def action_spec(self) -> specs.DiscreteArray:
         return specs.DiscreteArray(Actions.num_values(), name="action")
-
-    def random_point(self) -> Point:
-        return (
-            self._rng.randint(0, self.shape[0]),
-            self._rng.randint(0, self.shape[1]),
-        )
-
-    def locate(self, symbol: chr) -> List[Point]:
-        i, j = np.where(self.art == symbol)
-        locations = list(zip(i, j))
-        return locations
 
     def render(self, mode: str = "ansi") -> None:
         if mode == "human":
@@ -174,55 +194,3 @@ class World(base.Environment):
     def bsuite_info(self):
         return {}
 
-
-class TabularWorld(World):
-    # def __init__(self, game_config: WorldConfig, seed: int = None):
-    #     super().__init__(game_config, seed=seed)    
-
-    def _get_observation(self) -> Any:
-        i, j = self.locate("P")[0]
-        return i * self.shape[0] + j
-
-    def observation_spec(self) -> specs.DiscreteArray:
-        #print('tabular shape = ', self.shape, sum(self.shape))
-        num_values = self.shape[0] * self.shape[1]
-        return specs.DiscreteArray(num_values=num_values, name="observation")
-
-    def _fixobject_locations(self) -> None:
-        self.object_locations = {obj.symbol: [] for obj in self.objects}
-        for obj in self.objects:
-            for _ in range(obj.N):
-                location = self.empty_point()
-                self.object_locations[obj.symbol].append(location)
-                self.art[location] = obj.symbol
-        return
-
-VERY_DENSE = base.WorldConfig(
-    art=[
-        "#############"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#           #"
-        "#############"
-    ],
-    objects=tuple(
-        map(
-            lambda x: base.WorldObject(*x),
-            [
-                (1, 1.0, 0.0, 1.0, " "),
-            ],
-        )
-    ),
-    max_steps=2000,
-)
-
-class GridMaps(NamedTuple):
-    VERY_DENSE = VERY_DENSE
