@@ -49,14 +49,6 @@ class A2C(base.Agent):
             returns.insert(0, value)
         return returns
 
-    def _sample_policy(self, inputs: torch.tensor) -> torch.tensor:
-        ''' 这个函数为 select_action 准备 '''
-        policy, _ = self._network(inputs)  # TODO(thekips): should be self._network.forward(inputs)
-        dist = F.softmax(policy, dim=1)
-        action = dist.multinomial(num_samples=1)
-
-        return action
-
     def _step(self, trajectory: sequence.Trajectory):
         """Do a batch of SGD on the actor + critic loss."""
         observations, actions, rewards, discounts = trajectory
@@ -98,14 +90,15 @@ class A2C(base.Agent):
 
     def select_action(self, timestep: dm_env.TimeStep) -> base.Action:
         """Selects actions according to the latest softmax policy."""
-        obs_tensor = torch.tensor(timestep.observation, dtype=torch.double)
-        # 可能是增加一维，以备网络的批处理
-        observation = torch.unsqueeze(obs_tensor, dim=0)
-        policy, _ = self._network(observation)  # TODO(thekips): should be self._network.forward(inputs)
-        dist = F.softmax(policy, dim=1)
+        # combine the agent's location with obj's location respectively.
+        observation = timestep.observation
+        observation = torch.Tensor([observation[0] + x for x in observation[1]])
+
+        policy, _ = self._network(observation)
+        dist = F.softmax(policy, dim=0)
         action = dist.multinomial(num_samples=1)
 
-        return action.numpy()
+        return base.Action(action)
 
     def update(
             self,
@@ -138,13 +131,14 @@ class PolicyValueNet(nn.Module):
             self._fc_layer.add_module('fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
             self._fc_layer.add_module('relu'+str(i), nn.ReLU())
 
-    def forward(self, x):
-        x = self._fc_layer(x)
+    def forward(self, x: torch.Tensor):
+        x = self._fc_layer(x)   # shape = n x 64, n is the amount of object.
+        # simply summing in the direction dim=0.
+        x = torch.einsum('ij->j', x)    # it equals to x = x.sum(dim=0).
         policies = self._policy_head(x)      
         value = self._value_head(x)
 
         return policies, value
-
 
 '''
 class PolicyValueNet(nn.Module):

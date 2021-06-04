@@ -13,6 +13,9 @@ from torch.distributions import Categorical
 import matplotlib.pyplot as plt
 
 use_cuda = torch.cuda.is_available()
+print(use_cuda)
+
+'''
 device   = torch.device("cuda" if use_cuda else "cpu")
 
 from multiprocessing_env import SubprocVecEnv 
@@ -25,11 +28,6 @@ def make_env():
         env = gym.make(env_name)
         return env
     return _thunk
-
-'''
-def make_env():
-    env = gym.make(env_name)
-'''
 
 plt.ion()
 envs = [make_env() for i in range(num_envs)]
@@ -161,3 +159,4 @@ while frame_idx < max_frames:
     optimizer.step()
 
 test_env(True)
+'''
