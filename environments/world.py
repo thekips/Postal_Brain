@@ -68,7 +68,8 @@ class World(base.Environment):
 
         # private:
         self._without_draw_item = True
-        self._art = np.array([list(x) for x in game_config.art])
+        # TODO(thekips): make this can be used.
+        # self._art = np.array([list(x) for x in game_config.art])
         self._rng = np.random.RandomState(seed)
         self._timestep = 0
         
