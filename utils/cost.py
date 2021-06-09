@@ -1,18 +1,47 @@
-from typing import Dict, List
-from environments.world import Point
+import os
+from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
+from pandas.core.frame import DataFrame
+import yaml
 
-from utils.info import env_info 
-from utils.utils import *
+Point = Tuple[float, float]
+CWD = os.path.dirname(__file__) + '/'
+
+class EnvInfo(object):
+    '''
+    Generate some info about env information.
+
+    Attributes:
+        no_to_name: A Dict from department no to department name.
+        no_to_location: A Dict from department no to department location.
+        velocity: A float representing postman's delivering velocity.
+        ratio: A float used to transform weight to hour. 
+    '''
+
+    def __init__(self) -> None:
+        super().__init__()
+        # read location of original department's information from config.yaml.
+        with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
+            configs = yaml.safe_load(f)
+
+        self.no_to_name = {}
+        self.no_to_location = {}
+        records = read_cx(CWD + configs['department'])
+        for record in records[['机构代码','机构简称','lat','lng']].values:
+            self.no_to_name[record[0]] = record[1]
+            self.no_to_location[record[0]] = (record[2],record[3])
+        
+        self.velocity = configs['velocity']
+        self.ratio = configs['ratio']
 
 class Cost(object):
-    def __init__(self) -> None:
+    def __init__(self, env_info: EnvInfo) -> None:
         super().__init__()
 
         self._velocity = env_info.velocity
         self._ratio = env_info.ratio
-        self._data = read_cx('data/data_.csv')
+        self._data = read_cx(CWD + 'data/data_.csv')
         print("have read %d records" % len(self._data))
 
     def __discount1(self, x) -> np.float64:
@@ -132,3 +161,57 @@ class Cost(object):
 
     def num_obj(self) -> int:
         return len(self._data)
+
+def read_csv(path, low_memory=False) -> DataFrame:
+    '''
+    read a csv file with encoding=gb18030.
+
+    Args：
+        path: the path of csv file.
+        low_memory: whether read file in low_memory mode.
+
+    Returns:
+        A dataframe object which include the content of file with the given path.
+    '''
+    print(path)
+    try:
+        return pd.read_csv(path,encoding='gb18030',low_memory=low_memory)
+    except:
+        return pd.read_csv(path,low_memory=low_memory)
+
+def read_cx(path) -> DataFrame:
+    '''
+    Read a csv file or excel file like '.xlsx', '.xls'.
+
+    Args:
+        path: the path of csv file or excel file.
+
+    Returns:
+        A dataframe object which include the content of file with the given path.
+    '''
+    try:
+        return read_csv(path)
+    except:
+        return pd.read_excel(path, engine='openpyxl')
+
+def location_to_manhattan(loc1, loc2):
+    '''
+    caculate distance between loc1 and loc2.
+
+    Args：
+        loc1: A array, list or tuple include location pair.
+        loc2: A array, list or tuple include location pair.
+
+    Returns：
+        dist: manhattan distance between loc1 and loc2.
+    '''
+    d_lat_lon = np.abs(np.radians(loc1) - np.radians(loc2))
+    
+    r = 6373.0
+    a_lat_lon = np.sin(d_lat_lon / 2.0) **2
+    distance = 2 * np.arctan2(np.sqrt(a_lat_lon), np.sqrt(1 - a_lat_lon))
+    distance = r * distance
+    distance = distance.reshape(-1,2)
+    distance = np.sum(distance, axis=1)
+    
+    return distance if len(distance) > 1 else distance[0]

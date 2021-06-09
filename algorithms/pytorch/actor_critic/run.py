@@ -1,6 +1,9 @@
+import os
+import sys
 from absl import app, flags
 
 #local import
+sys.path.append(os.getcwd())
 from environments.world import World
 from algorithms.pytorch.actor_critic.a2c_act import A2C, PolicyValueNet
 from algorithms import experiment
@@ -8,7 +11,7 @@ from algorithms import experiment
 # Environment.
 flags.DEFINE_integer('max_steps', 1000, 'steps for agent to try in the environment')
 flags.DEFINE_integer('seed', 42, 'seed for random number generation')
-flags.DEFINE_integer('n_acton', 9, 'total type of action to choose')
+flags.DEFINE_integer('n_action', 9, 'total type of action to choose')
 flags.DEFINE_integer('num_episodes', None, 'Overrides number of training eps')
 
 # Agent.
@@ -20,7 +23,7 @@ flags.DEFINE_float('discount', .99, 'discounting on the agent side')
 
 FLAGS = flags.FLAGS
 
-def run():
+def run(_):
     '''Runing experiment in a2c(output the action) by pytorch...'''
 
     env = World(FLAGS.max_steps, FLAGS.discount, FLAGS.seed, FLAGS.n_action)
