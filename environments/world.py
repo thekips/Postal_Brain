@@ -9,7 +9,7 @@ from PIL import Image
 from dm_env import specs
 
 from environments import base
-from utils.info import cost, env_info
+from utils.env_info import env_info
 
 Point = Tuple[float, float]
 
@@ -60,7 +60,6 @@ class World(base.Environment):
 
         # public:
         self.art = None
-        self.objects = cost.get_obj()
         self.max_steps = max_steps
         self.discount = discount
 
@@ -75,22 +74,28 @@ class World(base.Environment):
         
         # self._plot = plt.imshow(np.empty(self.shape))
         
-        self._agent_location = env_info.no_to_location 
-        self._object_location = cost.get_obj()
+        self._agent_loc = env_info.agent_loc
+        self._object_loc = env_info.object_loc
 
         self._reset()
 
-    @abstractmethod
+    def observation_spec(self) -> specs.Array:
+        return specs.DiscreteArray(env_info.num_obj(), name="observation")
+
+    def action_spec(self) -> specs.DiscreteArray:
+        return specs.DiscreteArray(Actions.num_values(), name="action")
+
     def _get_observation(self) -> Any:
         # TODO(thekips): make more agent when program can run.
-        return (self._agent_location['52900009'], self._object_location['52900009'])
+        return (self._agent_loc[52900009], self._object_loc[52900009])
+        # return lf._agent_loc
 
     def _reset(self) -> dm_env.TimeStep:
-        self.art = self._art.copy()
+        # self.art = self._art.copy()
         self._timestep = 0
     
-        # spawn agent at random location
-        self._agent_location = self.spawn('P')
+        # reset agent at initial location.
+        self._agent_loc = env_info.no_to_location
 
         return dm_env.restart(self._get_observation())
 
@@ -98,21 +103,16 @@ class World(base.Environment):
         self._timestep += 1
 
         ## update agent
-        obj_location = {}   # save instant location of departments.
-        for object in self.objects:
+        for agent in self._agent_loc.keys():
             reward = 0.0
             vector = Actions(action).vector()
-            location = (
-                max(0, min(self._agent_location[0] + vector[0], self.shape[0])),
-                max(0, min(self._agent_location[1] + vector[1], self.shape[1])),
+            self._agent_loc = (
+                max(0, min(self._agent_loc[agent][0] + vector[0], self.shape[0])),
+                max(0, min(self._agent_loc[agent][1] + vector[1], self.shape[1])),
             )
 
-            # set new agent position
-            object.location = location
-            obj_location[object.no] = object.location
-
         # compute reward by the cost
-        cost = self.cost.cal_cost(obj_location)
+        cost = self.cost.cal_cost(self._agent_loc)
         reward = sum(cost.values)
 
         # 增加到最大步数时结束
@@ -172,13 +172,6 @@ class World(base.Environment):
         plt.draw()
         plt.show()
         plt.clf()
-
-    @abstractmethod
-    def observation_spec(self) -> specs.Array:
-        return specs.DiscreteArray(cost.num_obj(), name="observation")
-
-    def action_spec(self) -> specs.DiscreteArray:
-        return specs.DiscreteArray(Actions.num_values(), name="action")
 
     def render(self, mode: str = "ansi") -> None:
         if mode == "human":

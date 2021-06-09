@@ -25,24 +25,40 @@ class EnvInfo(object):
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
 
-        self.no_to_name = {}
-        self.no_to_location = {}
-        records = read_cx(CWD + configs['department'])
-        for record in records[['机构代码','机构简称','lat','lng']].values:
-            self.no_to_name[record[0]] = record[1]
-            self.no_to_location[record[0]] = (record[2],record[3])
-        
-        self.velocity = configs['velocity']
-        self.ratio = configs['ratio']
+        self._velocity = configs['velocity']
+        self._ratio = configs['ratio']
 
-class Cost(object):
-    def __init__(self, env_info: EnvInfo) -> None:
-        super().__init__()
-
-        self._velocity = env_info.velocity
-        self._ratio = env_info.ratio
         self._data = read_cx(CWD + 'data/data_.csv')
         print("have read %d records" % len(self._data))
+
+        # some information should share with environment.
+        self.agent_name = {}
+        self.agent_loc = {}
+
+        records = read_cx(CWD + configs['department'])
+        for record in records[['机构代码','机构简称','lat','lng']].values:
+            self.agent_name[record[0]] = record[1]
+            self.agent_loc[record[0]] = (record[2],record[3])
+        
+        self.object_loc = self._get_obj()
+    
+    def _get_obj(self) -> Dict[str, List[Point]]: 
+        '''
+        use self._data to generate the objects' location.
+
+        Returns:
+            object_loc: A dict from agent number to the location of it's objects.
+        '''
+        object_loc = {}
+
+        def gen_dict(x):
+            key = x.投递机构.unique()[0]
+            value = [*zip(x.lat.values, x.lng.values)]
+            object_loc[key] = value
+                
+        self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
+
+        return object_loc
 
     def __discount1(self, x) -> np.float64:
         '''
@@ -56,7 +72,7 @@ class Cost(object):
         '''
         return 1 / (55 + np.log(x))
 
-    def __update_dist(self, obj_location: Dict) -> None:
+    def __update_dist(self, agent_loc: Dict) -> None:
         '''
         Use the new location of agent(department) to update dist column in self._data.
         The dist is distance between record address and its corresponding department.
@@ -67,7 +83,7 @@ class Cost(object):
         Returns:
             None
         '''
-        self._data['dist'] = self._data.apply(lambda x: location_to_manhattan(obj_location[x.投递机构], tuple(x.lng, x.lat)))
+        self._data['dist'] = self._data.apply(lambda x: location_to_manhattan(agent_loc[x.投递机构], tuple(x.lng, x.lat)))
 
     def __cal_semi_cost(self, x) -> Tuple[np.float64, np.float64]:
         '''
@@ -125,7 +141,7 @@ class Cost(object):
         sum += dist / self.velocity # add deliver cost.
         return tuple(sum, dist) 
 
-    def cal_cost(self, obj_location: Dict) -> Dict:
+    def cal_cost(self, agent_loc: Dict) -> Dict:
         '''
         calculate each department's instant cost and distance.
 
@@ -143,21 +159,10 @@ class Cost(object):
             cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
         # calculate every department's cost separately.
-        self.__update_dist(obj_location)
+        self.__update_dist(agent_loc)
         self._data.grouby(by=['投递机构']).apply(in_cal_cost)
 
         return cost
-    
-    def get_obj(self) -> Dict[str, List[Point]]: 
-        obj_location = {}
-
-        def gen_dict(x):
-            key = x.投递机构.unique()[0]
-            value = [*zip(x.lat.values, x.lng.values)]
-            obj_location[key] = value
-            
-        self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
-        return obj_location
 
     def num_obj(self) -> int:
         return len(self._data)
@@ -215,3 +220,5 @@ def location_to_manhattan(loc1, loc2):
     distance = np.sum(distance, axis=1)
     
     return distance if len(distance) > 1 else distance[0]
+
+env_info = EnvInfo()
