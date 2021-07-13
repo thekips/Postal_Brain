@@ -17,6 +17,7 @@ import torch.nn.functional as F
 # Internal Imports.
 from algorithms import base
 from algorithms.utils import sequence
+from algorithms.pytorch.vit.vit import ViT
 
 class A2C(base.Agent):
     """A simple TensorFlow-based feedforward actor-critic implementation."""
