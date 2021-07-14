@@ -5,7 +5,8 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import yaml
 
-Point = Tuple[float, float]
+from typedef import Point
+
 CWD = os.path.dirname(__file__) + '/'
 
 class EnvInfo(object):

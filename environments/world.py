@@ -1,17 +1,12 @@
 import enum
-from algorithms.base import Action
 import matplotlib.pyplot as plt
 import dm_env
 import numpy as np
-from abc import abstractmethod
-from typing import Any, List, NamedTuple, Tuple
-from PIL import Image
 from dm_env import specs
 
-from environments import base
+from environments.base import Environment
 from utils.env_info import env_info
-
-Point = Tuple[float, float]
+from utils.heatmap import Image
 
 class StandardActions(enum.IntEnum):
     NORTHWEST = 0; NORTH = 1; NORTHEAST = 2
@@ -45,7 +40,7 @@ class SmallActions(enum.IntEnum):
 
 Actions = StandardActions
 
-class World(base.Environment):
+class World(Environment):
     def __init__(
         self,
         max_steps,
@@ -85,10 +80,13 @@ class World(base.Environment):
     def action_spec(self) -> specs.DiscreteArray:
         return specs.DiscreteArray(Actions.num_values(), name="action")
 
-    def _get_observation(self) -> Any:
+    def _get_observation(self) -> np.ndarray:
         # TODO(thekips): make more agent when program can run.
-        return (self._agent_loc[52900009], self._object_loc[52900009])
-        # return lf._agent_loc
+        # image = Image(self._agent_loc, self._object_loc)
+        image = Image(self._agent_loc[52900009], self._object_loc[52900009])
+        self.observation = image.getHeatMap()
+
+        return self.observation
 
     def _reset(self) -> dm_env.TimeStep:
         # self.art = self._art.copy()
@@ -121,69 +119,10 @@ class World(base.Environment):
 
         return dm_env.transition(reward, self._get_observation())
 
-    def _draw_item(self,  grid_size: int= 50, gap_size: int= 2):
-        blue = (0, 64, 254)
-        red = (254, 0, 64)
-        yellow = (254, 190, 0)
-        green = (0, 199, 159)
-        bg_color = (50, 50, 80)
-
-        color_dict = {'#': bg_color, ' ': 'white', 'a': green, 'b': yellow, 'c': red, 'P': blue}
-
-        bg_height = self.art.shape[1] * (grid_size + gap_size) - gap_size
-        bg_weight = self.art.shape[0] * (grid_size + gap_size) - gap_size
-        bg_size = (bg_height, bg_weight)
-        self._img = Image.new('RGB', bg_size, bg_color)
-
-        for i in range(self.art.shape[0]):
-            for j in range(self.art.shape[1]):
-                if self.art[i][j] != '#':
-                    color = color_dict[' ']
-                    grid_img = Image.new('RGB', (grid_size, grid_size), color)
-                    paste_pos = (j * (grid_size + gap_size), i * (grid_size + gap_size))
-
-                    self._img.paste(grid_img, paste_pos)
-        self._grid_img = dict([ (obj.symbol, Image.new('RGB', (grid_size, grid_size), color_dict[obj.symbol])) for obj in self.objects])
-        self._grid_img['P'] = Image.new('RGB', (grid_size, grid_size), color_dict['P'])
-        
-        # 打开动态画图模式
-        plt.ion()
-
-        plt.imshow(self._img)
-        plt.draw()
-        plt.show()
-        plt.pause(1)
+    def _draw_item(self):
         plt.clf()
-        
-
-    def _plot(self, grid_size: int= 50, gap_size: int= 2):
-        img = self._img.copy()
-        for obj in self.objects:
-            for i, j in self.locate(obj.symbol):
-                paste_pos = (j * (grid_size + gap_size), i * (grid_size + gap_size))
-                img.paste(self._grid_img[obj.symbol], paste_pos)
-
-        for i, j in self.locate('P'):
-            paste_pos = (j * (grid_size + gap_size), i * (grid_size + gap_size))
-            img.paste(self._grid_img['P'], paste_pos)
-
-
-        plt.imshow(img)
-        plt.draw()
+        plt.imshow(self.observation)
         plt.show()
-        plt.clf()
-
-    def render(self, mode: str = "ansi") -> None:
-        if mode == "human":
-            if self._without_draw_item:
-                self._draw_item()
-                self._without_draw_item = False
-            self._plot()
-        elif mode == "rgb_array":
-            return self.art
-        elif mode == "ansi":
-            print(self.art)
-        return
 
     def bsuite_info(self):
         return {}

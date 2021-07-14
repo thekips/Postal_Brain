@@ -4,11 +4,11 @@ from typing import Any, List, NamedTuple, Tuple
 
 import matplotlib.pyplot as plt
 from PIL import Image
-from lrla.environments import base
 import dm_env
 import numpy as np
 from dm_env import specs
 
+from environments import base
 
 Point = Tuple[int, int]
 
