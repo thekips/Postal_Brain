@@ -20,10 +20,10 @@ class Image(object):
         plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
         plt.axis('off')
         if isplot: plt.show()
-        plt.savefig('current.jpg')
+        plt.savefig('utils/res/current.jpg')
         plt.clf()
 
-        self.img = plt.imread('current.jpg') 
+        self.img = plt.imread('utils/res/current.jpg') 
         return self.img
 
     def getScatterMap(self, isplot=False):
@@ -31,10 +31,10 @@ class Image(object):
         plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
         plt.axis('off')
         if isplot: plt.show()
-        plt.savefig('current.jpg')
+        plt.savefig('utils/res/current.jpg')
         plt.clf()
 
-        self.img = plt.imread('current.jpg')
+        self.img = plt.imread('utils/res/current.jpg')
         return self.img
 
 if __name__ == "__main__":

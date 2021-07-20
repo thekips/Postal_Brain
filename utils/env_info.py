@@ -5,7 +5,7 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import yaml
 
-from typedef import Point
+from utils.typedef import Point
 
 CWD = os.path.dirname(__file__) + '/'
 
@@ -14,8 +14,8 @@ class EnvInfo(object):
     Generate some info about env information.
 
     Attributes:
-        no_to_name: A Dict from department no to department name.
-        no_to_location: A Dict from department no to department location.
+        agent_name: A Dict from department no to department name.
+        agent_loc: A Dict from department no to department location.
         velocity: A float representing postman's delivering velocity.
         ratio: A float used to transform weight to hour. 
     '''

@@ -75,7 +75,7 @@ class World(Environment):
         self._reset()
 
     def observation_spec(self) -> specs.Array:
-        return specs.DiscreteArray(env_info.num_obj(), name="observation")
+        return specs.DiscreteArray(640 * 480, name="observation")
 
     def action_spec(self) -> specs.DiscreteArray:
         return specs.DiscreteArray(Actions.num_values(), name="action")
@@ -93,7 +93,7 @@ class World(Environment):
         self._timestep = 0
     
         # reset agent at initial location.
-        self._agent_loc = env_info.no_to_location
+        self._agent_loc = env_info.agent_loc
 
         return dm_env.restart(self._get_observation())
 

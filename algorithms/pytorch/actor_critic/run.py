@@ -29,7 +29,7 @@ def run(_):
     env = World(FLAGS.max_steps, FLAGS.discount, FLAGS.seed, FLAGS.n_action)
 
     hidden_sizes = [FLAGS.num_units] * FLAGS.num_hidden_layers
-    hidden_sizes.insert(0, 4)   # the first dim is 4 for two coord.
+    hidden_sizes.insert(0, 4)   # the first dim is 2 for two coord.
     agent = A2C(
         obs_spec=env.observation_spec(),
         action_spec=env.action_spec(),

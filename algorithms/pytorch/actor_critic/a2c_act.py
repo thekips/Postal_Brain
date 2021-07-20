@@ -6,6 +6,7 @@ from typing import Sequence, Dict
 import dm_env
 from dm_env import specs
 from torch.distributions.categorical import Categorical
+from torch.nn.modules import dropout
 import tree
 
 import numpy as np
@@ -16,8 +17,9 @@ import torch.nn.functional as F
 
 # Internal Imports.
 from algorithms import base
-from algorithms.utils import sequence
-from algorithms.pytorch.vit.vit import ViT
+import algorithms.utils.sequence as sequence
+from algorithms.pytorch.vit import ViT
+
 
 class A2C(base.Agent):
     """A simple TensorFlow-based feedforward actor-critic implementation."""
@@ -37,10 +39,12 @@ class A2C(base.Agent):
 
         # Internalise network and optimizer.
         self._network = network
-        self._optimizer = torch.optim.Adam(network.parameters(), lr=learning_rate)
+        self._optimizer = torch.optim.Adam(
+            network.parameters(), lr=learning_rate)
 
         # Create windowed buffer for learning from trajectories.
-        self._buffer = sequence.Buffer(obs_spec, action_spec, max_sequence_length)
+        self._buffer = sequence.Buffer(
+            obs_spec, action_spec, max_sequence_length)
 
     def __compute_returns(self, final_value, rewards, discounts):
         value = final_value
@@ -70,7 +74,7 @@ class A2C(base.Agent):
         log_probs = dists.log_prob(actions)
         log_probs = torch.cat(log_probs)
 
-        # calculate actual values by the trajectory. 
+        # calculate actual values by the trajectory.
         returns = self.__compute_returns(final_value, rewards, discounts)
         returns = torch.cat(returns).detach()
 
@@ -93,7 +97,8 @@ class A2C(base.Agent):
         """Selects actions according to the latest softmax policy."""
         # combine the agent's location with obj's location respectively.
         observation = timestep.observation
-        observation = torch.Tensor([observation[0] + x for x in observation[1]])
+        observation = torch.Tensor(
+            [observation[0] + x for x in observation[1]])
 
         policy, _ = self._network(observation)
         dist = F.softmax(policy, dim=0)
@@ -117,29 +122,52 @@ class A2C(base.Agent):
             trajectory = tree.map_structure(torch.tensor, trajectory)
             self._step(trajectory)
 
+
+v = ViT(
+    image_size=256,
+    patch_size=32,
+    num_classes=1000,
+    dim=1024,
+    depth=6,
+    heads=16,
+    mlp_dim=2048,
+    dropout=0.1,
+    emb_dropout=0.1
+)
+
+img = torch.randn(1, 3, 256, 256)
+
+preds = v(img)  # (1, 1000)
+
+
 class PolicyValueNet(nn.Module):
     def __init__(
         self,
+        image_size,
+        patch_size,
+        hidden_size: int,
         action_spec: specs.DiscreteArray,
-        hidden_sizes: Sequence[int]
     ):
         super(PolicyValueNet, self).__init__()
-        self._fc_layer = nn.Sequential()
-        self._policy_head = nn.Linear(hidden_sizes[-1], action_spec.num_values)
-        self._value_head = nn.Linear(hidden_sizes[-1], 1)
+        self._vit = ViT(image_size=image_size, patch_size=patch_size, num_classes=hidden_size,
+                       dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=2048, emb_dropout=0.1)
+        self._policy_head = nn.Linear(hidden_size, action_spec.num_values)
+        self._value_head = nn.Linear(hidden_size, 1)
 
-        for i in range(len(hidden_sizes) - 1):
-            self._fc_layer.add_module('fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
-            self._fc_layer.add_module('relu'+str(i), nn.ReLU())
+        # self._fc_layer = nn.Sequential()
+        # for i in range(len(hidden_sizes) - 1):
+        #     self._fc_layer.add_module(
+        #         'fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
+        #     self._fc_layer.add_module('relu'+str(i), nn.ReLU())
 
     def forward(self, x: torch.Tensor):
-        x = self._fc_layer(x)   # shape = n x 64, n is the amount of object.
-        # simply summing in the direction dim=0.
-        x = torch.einsum('ij->j', x)    # it equals to x = x.sum(dim=0).
-        policies = self._policy_head(x)      
+        x = self._vit(x)   # x.shape turn from image_size to hidden_size.
+
+        policies = self._policy_head(x)
         value = self._value_head(x)
 
         return policies, value
+
 
 '''
 class PolicyValueNet(nn.Module):
