@@ -122,24 +122,6 @@ class A2C(base.Agent):
             trajectory = tree.map_structure(torch.tensor, trajectory)
             self._step(trajectory)
 
-
-v = ViT(
-    image_size=256,
-    patch_size=32,
-    num_classes=1000,
-    dim=1024,
-    depth=6,
-    heads=16,
-    mlp_dim=2048,
-    dropout=0.1,
-    emb_dropout=0.1
-)
-
-img = torch.randn(1, 3, 256, 256)
-
-preds = v(img)  # (1, 1000)
-
-
 class PolicyValueNet(nn.Module):
     def __init__(
         self,
@@ -150,7 +132,7 @@ class PolicyValueNet(nn.Module):
     ):
         super(PolicyValueNet, self).__init__()
         self._vit = ViT(image_size=image_size, patch_size=patch_size, num_classes=hidden_size,
-                       dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=2048, emb_dropout=0.1)
+                       dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=0.1, emb_dropout=0.1)
         self._policy_head = nn.Linear(hidden_size, action_spec.num_values)
         self._value_head = nn.Linear(hidden_size, 1)
 

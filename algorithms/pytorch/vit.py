@@ -104,6 +104,7 @@ class ViT(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
 
+        print(num_classes)
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
             nn.Linear(dim, num_classes)

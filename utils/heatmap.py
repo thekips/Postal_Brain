@@ -3,7 +3,7 @@ import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 
-from typedef import Point
+from utils.typedef import Point
 
 class Image(object):
     def __init__(self, agent_loc: Point, object_loc: List[Point]) -> None:

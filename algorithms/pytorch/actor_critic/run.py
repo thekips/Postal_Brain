@@ -28,13 +28,12 @@ def run(_):
 
     env = World(FLAGS.max_steps, FLAGS.discount, FLAGS.seed, FLAGS.n_action)
 
-    hidden_sizes = [FLAGS.num_units] * FLAGS.num_hidden_layers
-    hidden_sizes.insert(0, 4)   # the first dim is 2 for two coord.
+    vit_odim = 64
     agent = A2C(
         obs_spec=env.observation_spec(),
         action_spec=env.action_spec(),
         max_sequence_length=FLAGS.sequence_length,
-        network=PolicyValueNet(env.action_spec(), hidden_sizes),
+        network=PolicyValueNet((640, 480), (80, 80), vit_odim, env.action_spec()),
         learning_rate=FLAGS.learning_rate,
         discount=FLAGS.discount
     )
