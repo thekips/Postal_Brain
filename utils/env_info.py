@@ -84,7 +84,8 @@ class EnvInfo(object):
         Returns:
             None
         '''
-        self._data['dist'] = self._data.apply(lambda x: location_to_manhattan(agent_loc[x.投递机构], tuple(x.lng, x.lat)))
+        func = lambda x: location_to_manhattan(agent_loc[x.投递机构], (x.lng, x.lat))
+        self._data['dist'] = self._data[['投递机构','lng','lat']].apply(func, axis=1)
 
     def __cal_semi_cost(self, x) -> Tuple[np.float64, np.float64]:
         '''

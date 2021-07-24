@@ -24,6 +24,7 @@ def run(
 
         while not timestep.last():
             action = agent.select_action(timestep)
+            print(action)
             new_timestep = environment.step(action)
 
             # Pass the (s, a, r, s')info to the agent.

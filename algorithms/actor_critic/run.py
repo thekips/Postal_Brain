@@ -5,7 +5,7 @@ from absl import app, flags
 #local import
 sys.path.append(os.getcwd())
 from environments.world import World
-from algorithms.pytorch.actor_critic.a2c_act import A2C, PolicyValueNet
+from algorithms.actor_critic.a2c_act import A2C, PolicyValueNet
 from algorithms import experiment
 
 # Environment.
@@ -52,23 +52,23 @@ from absl import app, flags
 #local import
 sys.path.append('/home/ekips/Documents/Python/Postal_Brain/')
 from environments.world import World
-from algorithms.pytorch.actor_critic.a2c_act import A2C, PolicyValueNet
+from algorithms.actor_critic.a2c_act import A2C, PolicyValueNet
 from algorithms import experiment
 
 env = World(1000, .99, 42, 9)
-
-#%%
 vit_odim = 64
 agent = A2C(
     obs_spec=env.observation_spec(),
     action_spec=env.action_spec(),
     max_sequence_length=32,
-    network=PolicyValueNet((640, 480), (80, 80), vit_odim, env.action_spec()),
+    network=PolicyValueNet((600, 400), (100, 100), vit_odim, env.action_spec()),
     learning_rate=1e-2,
     discount=.99
 )
 
 num_episodes = None or env.bsuite_num_episodes
+
 #%%
 experiment.run(agent, env, num_episodes, 'res/a2c_act.pkl')
+
 # %%

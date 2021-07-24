@@ -104,14 +104,17 @@ class World(Environment):
         for agent in self._agent_loc.keys():
             reward = 0.0
             vector = Actions(action).vector()
-            self._agent_loc = (
-                max(0, min(self._agent_loc[agent][0] + vector[0], self.shape[0])),
-                max(0, min(self._agent_loc[agent][1] + vector[1], self.shape[1])),
+            print('vec', vector)
+            self._agent_loc[agent] = (
+                self._agent_loc[agent][0] + vector[0],
+                self._agent_loc[agent][1] + vector[1]
             )
+            break
 
         # compute reward by the cost
-        cost = self.cost.cal_cost(self._agent_loc)
-        reward = sum(cost.values)
+        cost = env_info.cal_cost(self._agent_loc)
+        # reward = sum(cost.values)
+        reward = float(cost[52900009])
 
         # 增加到最大步数时结束
         if self._timestep == self.max_steps:

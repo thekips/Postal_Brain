@@ -1,9 +1,13 @@
+import os
 from typing import List
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 
 from utils.typedef import Point
+
+CWD = os.path.dirname(__file__) + '/'
+print(CWD)
 
 class Image(object):
     def __init__(self, agent_loc: Point, object_loc: List[Point]) -> None:
@@ -20,10 +24,10 @@ class Image(object):
         plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
         plt.axis('off')
         if isplot: plt.show()
-        plt.savefig('utils/res/current.jpg')
+        plt.savefig(CWD + 'res/current.jpg', dpi=100)
         plt.clf()
 
-        self.img = plt.imread('utils/res/current.jpg') 
+        self.img = plt.imread(CWD + 'res/current.jpg') 
         return self.img
 
     def getScatterMap(self, isplot=False):
@@ -31,10 +35,10 @@ class Image(object):
         plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
         plt.axis('off')
         if isplot: plt.show()
-        plt.savefig('utils/res/current.jpg')
+        plt.savefig(CWD + 'res/current.jpg', dpi=100)
         plt.clf()
 
-        self.img = plt.imread('utils/res/current.jpg')
+        self.img = plt.imread(CWD + 'res/current.jpg')
         return self.img
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ import torch.nn.functional as F
 # Internal Imports.
 from algorithms import base
 import algorithms.utils.sequence as sequence
-from algorithms.pytorch.vit import ViT
+from algorithms.vit import ViT
 
 
 class A2C(base.Agent):
@@ -96,9 +96,8 @@ class A2C(base.Agent):
     def select_action(self, timestep: dm_env.TimeStep) -> base.Action:
         """Selects actions according to the latest softmax policy."""
         # combine the agent's location with obj's location respectively.
-        observation = timestep.observation
-        observation = torch.Tensor(
-            [observation[0] + x for x in observation[1]])
+        observation = torch.tensor(timestep.observation)
+        print(type(observation))
 
         policy, _ = self._network(observation)
         dist = F.softmax(policy, dim=0)
@@ -142,8 +141,10 @@ class PolicyValueNet(nn.Module):
         #         'fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
         #     self._fc_layer.add_module('relu'+str(i), nn.ReLU())
 
-    def forward(self, x: torch.Tensor):
-        x = self._vit(x)   # x.shape turn from image_size to hidden_size.
+    def forward(self, x):
+        x = x / 255 # take value in x into [0, 1] as float.
+        x = self._vit(torch.unsqueeze(x, 0))   # x.shape turn from image_size to hidden_size.
+        x = torch.squeeze(x)
 
         policies = self._policy_head(x)
         value = self._value_head(x)
