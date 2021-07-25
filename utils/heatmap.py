@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from utils.typedef import Point
 
 CWD = os.path.dirname(__file__) + '/'
-print(CWD)
 
 class Image(object):
     def __init__(self, agent_loc: Point, object_loc: List[Point]) -> None:
@@ -20,23 +19,25 @@ class Image(object):
         self.img = np.ndarray
 
     def getHeatMap(self, isplot=False):
-        sns.kdeplot(x=self.object_x, y=self.object_y, shade=True)
-        plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
-        plt.axis('off')
-        if isplot: plt.show()
-        plt.savefig(CWD + 'res/current.jpg', dpi=100)
-        plt.clf()
+        # TODO(thekips): so slow that only read from old img.
+        # sns.kdeplot(x=self.object_x, y=self.object_y, shade=True)
+        # plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
+        # plt.axis('off')
+        # if isplot: plt.show()
+        # plt.savefig(CWD + 'res/current.jpg', dpi=100)
+        # plt.clf()
 
         self.img = plt.imread(CWD + 'res/current.jpg') 
         return self.img
 
     def getScatterMap(self, isplot=False):
-        plt.scatter(x=self.object_x, y=self.object_y, c='blue')
-        plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
-        plt.axis('off')
-        if isplot: plt.show()
-        plt.savefig(CWD + 'res/current.jpg', dpi=100)
-        plt.clf()
+        # TODO(thekips): so slow that only read from old img.
+        # plt.scatter(x=self.object_x, y=self.object_y, c='blue')
+        # plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
+        # plt.axis('off')
+        # if isplot: plt.show()
+        # plt.savefig(CWD + 'res/current.jpg', dpi=100)
+        # plt.clf()
 
         self.img = plt.imread(CWD + 'res/current.jpg')
         return self.img

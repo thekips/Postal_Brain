@@ -1,8 +1,10 @@
 import enum
+from functools import reduce
+
+from utils.typedef import Spec
 import matplotlib.pyplot as plt
 import dm_env
 import numpy as np
-from dm_env import specs
 
 from environments.base import Environment
 from utils.env_info import env_info
@@ -72,19 +74,23 @@ class World(Environment):
         self._agent_loc = env_info.agent_loc
         self._object_loc = env_info.object_loc
 
+        print('world init reset.')
         self._reset()
 
-    def observation_spec(self) -> specs.Array:
-        return specs.DiscreteArray(640 * 480, name="observation")
+    def observation_spec(self) -> Spec:
+        shape = self.observation.shape
+        return Spec(shape, reduce(lambda x, y: x * y, shape), int, 'observation')
 
-    def action_spec(self) -> specs.DiscreteArray:
-        return specs.DiscreteArray(Actions.num_values(), name="action")
+    def action_spec(self) -> Spec:
+        return Spec((Actions.num_values(), ), Actions.num_values(), int, 'action')
 
     def _get_observation(self) -> np.ndarray:
         # TODO(thekips): make more agent when program can run.
         # image = Image(self._agent_loc, self._object_loc)
+        print('Gen the kde plot.')
         image = Image(self._agent_loc[52900009], self._object_loc[52900009])
         self.observation = image.getHeatMap()
+        print('Gen the kde plot end.')
 
         return self.observation
 
@@ -93,9 +99,13 @@ class World(Environment):
         self._timestep = 0
     
         # reset agent at initial location.
+        print('world start get env_info about loc')
         self._agent_loc = env_info.agent_loc
 
-        return dm_env.restart(self._get_observation())
+        print('begin restart env of reset.')
+        res = dm_env.restart(self._get_observation())
+        print('end restart.')
+        return res
 
     def _step(self, action: int) -> dm_env.TimeStep:
         self._timestep += 1

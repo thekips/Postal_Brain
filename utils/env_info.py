@@ -140,8 +140,8 @@ class EnvInfo(object):
             # calculate the sum of distance.
             dist += x1['dist'].values[0] + midist + x2['dist'].values[-1] 
 
-        sum += dist / self.velocity # add deliver cost.
-        return tuple(sum, dist) 
+        sum += dist / self._velocity # add deliver cost.
+        return (sum, dist) 
 
     def cal_cost(self, agent_loc: Dict) -> Dict:
         '''
@@ -153,16 +153,20 @@ class EnvInfo(object):
         Returns:
             A Dict from deparment's name to department's instant cost.
         '''
-        cost: dict
-        dist: dict
+        cost = {}
+        dist = {}
 
         def in_cal_cost(x):
-            dep_name = x[['投递机构']][:1].values[0]
+            dep_name = x.iloc[0]['投递机构']
+            # print(dep_name)
             cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
         # calculate every department's cost separately.
-        self.__update_dist(agent_loc)
-        self._data.grouby(by=['投递机构']).apply(in_cal_cost)
+        print("Update dist.")
+        # TODO(thekips): now comment next line to debug, please remember uncomment.
+        # self.__update_dist(agent_loc)
+        print("Finish update dist.")
+        self._data.groupby(by=['投递机构']).apply(in_cal_cost)
 
         return cost
 
@@ -180,7 +184,6 @@ def read_csv(path, low_memory=False) -> DataFrame:
     Returns:
         A dataframe object which include the content of file with the given path.
     '''
-    print(path)
     try:
         return pd.read_csv(path,encoding='gb18030',low_memory=low_memory)
     except:

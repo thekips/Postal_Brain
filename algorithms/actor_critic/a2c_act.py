@@ -5,6 +5,7 @@ from typing import Sequence, Dict
 # External Imports.
 import dm_env
 from dm_env import specs
+import einops
 from torch.distributions.categorical import Categorical
 from torch.nn.modules import dropout
 import tree
@@ -19,6 +20,10 @@ import torch.nn.functional as F
 from algorithms import base
 import algorithms.utils.sequence as sequence
 from algorithms.vit import ViT
+
+use_cuda = torch.cuda.is_available()
+device = torch.device('cuda' if use_cuda else 'cpu')
+print('we will use ', device)
 
 
 class A2C(base.Agent):
@@ -52,7 +57,7 @@ class A2C(base.Agent):
         for step in reversed(range(len(rewards))):
             value = rewards[step] + self._discount * value * discounts[step]
             returns.insert(0, value)
-        return returns
+        return torch.tensor(returns)
 
     def _step(self, trajectory: sequence.Trajectory):
         """Do a batch of SGD on the actor + critic loss."""
@@ -61,23 +66,31 @@ class A2C(base.Agent):
         # Add dummy batch dimensions.
         rewards = torch.unsqueeze(rewards, dim=-1)  # [T, 1]
         discounts = torch.unsqueeze(discounts, dim=-1)  # [T, 1]
-        observations = torch.unsqueeze(observations, dim=1)  # [T+1, 1, ...]
+        # print('rewards shape is',rewards.shape)
+        # print('discount shape is', discounts.shape)
+        # observations = torch.unsqueeze(observations, dim=1)  # [T+1, 1, ...]
 
         # calculate values by the value network.
         observations, final_observation = observations[:-1], observations[-1]
         policies, values = self._network(observations)
         _, final_value = self._network(final_observation)
-        values = torch.cat(values)
+        # print('values shape', values.shape, 'final_value', final_value.shape)
+        # print('policies', policies.shape)
+        values = torch.squeeze(values)
 
         # calculate the log probility of actions.
-        dists = Categorical(policies)
-        log_probs = dists.log_prob(actions)
-        log_probs = torch.cat(log_probs)
+        policies = F.softmax(policies, dim=1)
+        dists = [Categorical(policy) for policy in policies]
+        print('dists shape:', len(dists))
+        log_probs = torch.stack([dist.log_prob(actions[i]) for i, dist in enumerate(dists)])
+        log_probs = torch.squeeze(log_probs)
+        print('log_probs',log_probs.shape)
 
         # calculate actual values by the trajectory.
         returns = self.__compute_returns(final_value, rewards, discounts)
-        returns = torch.cat(returns).detach()
+        returns = torch.squeeze(returns).detach()
 
+        print('returns shape:', returns.shape, 'values shape:', values.shape)
         advantage = returns - values
 
         # compute loss.
@@ -97,7 +110,7 @@ class A2C(base.Agent):
         """Selects actions according to the latest softmax policy."""
         # combine the agent's location with obj's location respectively.
         observation = torch.tensor(timestep.observation)
-        print(type(observation))
+        # print('observation shape is', observation.shape)
 
         policy, _ = self._network(observation)
         dist = F.softmax(policy, dim=0)
@@ -113,6 +126,7 @@ class A2C(base.Agent):
     ):
         """Receives a transition and performs a learning update."""
 
+        print('timestep.observation a2c_act dtype is', timestep.observation.dtype, 'type is', type(timestep.observation))
         self._buffer.append(timestep, action, new_timestep)
 
         # When the batch is full, do a step of SGD.
@@ -130,21 +144,26 @@ class PolicyValueNet(nn.Module):
         action_spec: specs.DiscreteArray,
     ):
         super(PolicyValueNet, self).__init__()
+        print('Vit init.')
         self._vit = ViT(image_size=image_size, patch_size=patch_size, num_classes=hidden_size,
                        dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=0.1, emb_dropout=0.1)
         self._policy_head = nn.Linear(hidden_size, action_spec.num_values)
         self._value_head = nn.Linear(hidden_size, 1)
 
+        print('Vit end init.')
         # self._fc_layer = nn.Sequential()
         # for i in range(len(hidden_sizes) - 1):
         #     self._fc_layer.add_module(
         #         'fc'+str(i), nn.Linear(hidden_sizes[i], hidden_sizes[i+1]))
         #     self._fc_layer.add_module('relu'+str(i), nn.ReLU())
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         x = x / 255 # take value in x into [0, 1] as float.
-        x = self._vit(torch.unsqueeze(x, 0))   # x.shape turn from image_size to hidden_size.
-        x = torch.squeeze(x)
+        if len(x.shape) == 3:
+            x = torch.unsqueeze(x, 0)
+        x = self._vit(x)   # x.shape turn from image_size to hidden_size.
+        print('vit output shape is ', x.shape)
+        # x = einops.rearrange(x, 'i j k l -> i (j k l)')
 
         policies = self._policy_head(x)
         value = self._value_head(x)

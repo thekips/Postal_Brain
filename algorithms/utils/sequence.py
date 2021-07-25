@@ -1,9 +1,9 @@
 """A simple windowed buffer for accumulating sequences."""
 
 from typing import NamedTuple
+from utils.typedef import Spec
 
 import dm_env
-from dm_env import specs
 import numpy as np
 
 from algorithms import base
@@ -34,8 +34,8 @@ class Buffer:
 
   def __init__(
       self,
-      obs_spec: specs.Array,
-      action_spec: specs.Array,
+      obs_spec: Spec,
+      action_spec: Spec,
       max_sequence_length: int,
   ):
     """Pre-allocates buffers of numpy arrays to hold the sequences."""
@@ -66,6 +66,7 @@ class Buffer:
       self._needs_reset = False
 
     # Append (o, a, r, d) to the sequence buffer.
+    print('sequece save obs type is', type(new_timestep.observation))
     self._observations[self._t + 1] = new_timestep.observation
     self._actions[self._t] = action
     self._rewards[self._t] = new_timestep.reward

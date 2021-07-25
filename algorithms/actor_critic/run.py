@@ -33,7 +33,7 @@ def run(_):
         obs_spec=env.observation_spec(),
         action_spec=env.action_spec(),
         max_sequence_length=FLAGS.sequence_length,
-        network=PolicyValueNet((640, 480), (80, 80), vit_odim, env.action_spec()),
+        network=PolicyValueNet((600, 400), (100, 100), vit_odim, env.action_spec()),
         learning_rate=FLAGS.learning_rate,
         discount=FLAGS.discount
     )
@@ -56,7 +56,9 @@ from algorithms.actor_critic.a2c_act import A2C, PolicyValueNet
 from algorithms import experiment
 
 env = World(1000, .99, 42, 9)
+print('Env inited.')
 vit_odim = 64
+print('Begin init agent.')
 agent = A2C(
     obs_spec=env.observation_spec(),
     action_spec=env.action_spec(),
@@ -65,6 +67,7 @@ agent = A2C(
     learning_rate=1e-2,
     discount=.99
 )
+print('End init agent.')
 
 num_episodes = None or env.bsuite_num_episodes
 
