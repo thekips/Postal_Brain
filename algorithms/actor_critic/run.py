@@ -13,6 +13,7 @@ flags.DEFINE_integer('max_steps', 1000, 'steps for agent to try in the environme
 flags.DEFINE_integer('seed', 42, 'seed for random number generation')
 flags.DEFINE_integer('n_action', 9, 'total type of action to choose')
 flags.DEFINE_integer('num_episodes', None, 'Overrides number of training eps')
+flags.DEFINE_string('start_time', '', 'Time to append in model\'s name.')
 
 # Agent.
 flags.DEFINE_integer('num_hidden_layers', 2, 'number of hidden layers')
@@ -39,39 +40,8 @@ def run(_):
     )
 
     num_episodes = FLAGS.num_episodes or env.bsuite_num_episodes
-    experiment.run(agent, env, num_episodes, 'res/a2c_act.pkl')
+    experiment.run(agent, env, num_episodes, 'models/actor_critic/a2c_act_'+ FLAGS.start_time + '.pkl')
 
 if __name__ == '__main__':
     app.run(run)
 
-#%%
-import os
-import sys
-from absl import app, flags
-
-#local import
-sys.path.append('/home/ekips/Documents/Python/Postal_Brain/')
-from environments.world import World
-from algorithms.actor_critic.a2c_act import A2C, PolicyValueNet
-from algorithms import experiment
-
-env = World(1000, .99, 42, 9)
-print('Env inited.')
-vit_odim = 64
-print('Begin init agent.')
-agent = A2C(
-    obs_spec=env.observation_spec(),
-    action_spec=env.action_spec(),
-    max_sequence_length=32,
-    network=PolicyValueNet((600, 400), (100, 100), vit_odim, env.action_spec()),
-    learning_rate=1e-2,
-    discount=.99
-)
-print('End init agent.')
-
-num_episodes = None or env.bsuite_num_episodes
-
-#%%
-experiment.run(agent, env, num_episodes, 'res/a2c_act.pkl')
-
-# %%

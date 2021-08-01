@@ -66,7 +66,6 @@ class Buffer:
       self._needs_reset = False
 
     # Append (o, a, r, d) to the sequence buffer.
-    print('sequece save obs type is', type(new_timestep.observation))
     self._observations[self._t + 1] = new_timestep.observation
     self._actions[self._t] = action
     self._rewards[self._t] = new_timestep.reward

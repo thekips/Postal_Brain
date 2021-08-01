@@ -110,7 +110,6 @@ class ViT(nn.Module):
         )
 
     def forward(self, img):
-        print('img shape is', img.shape, ' and dtype is ', img.dtype)
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 

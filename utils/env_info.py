@@ -22,44 +22,42 @@ class EnvInfo(object):
 
     def __init__(self) -> None:
         super().__init__()
+        self.agent_name = {} 
+        self.agent_loc = {}
+        self.object_loc = {}
+
         # read location of original department's information from config.yaml.
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
-
-        self._velocity = configs['velocity']
-        self._ratio = configs['ratio']
-
         self._data = read_cx(CWD + 'data/data_.csv')
         print("have read %d records" % len(self._data))
 
         # some information should share with environment.
-        self.agent_name = {}
-        self.agent_loc = {}
+        self.__get_agent(configs)
+        self.__get_obj()
 
+        self._velocity = configs['velocity']
+        self._ratio = configs['ratio']
+    
+    def __get_agent(self, configs) -> None:
         records = read_cx(CWD + configs['department'])
         for record in records[['机构代码','机构简称','lat','lng']].values:
             self.agent_name[record[0]] = record[1]
             self.agent_loc[record[0]] = (record[2],record[3])
-        
-        self.object_loc = self._get_obj()
     
-    def _get_obj(self) -> Dict[str, List[Point]]: 
+    def __get_obj(self) -> None: 
         '''
         use self._data to generate the objects' location.
 
         Returns:
             object_loc: A dict from agent number to the location of it's objects.
         '''
-        object_loc = {}
-
         def gen_dict(x):
-            key = x.投递机构.unique()[0]
+            key = x["投递机构"].unique()[0]
             value = [*zip(x.lat.values, x.lng.values)]
-            object_loc[key] = value
+            self.object_loc[key] = value
                 
         self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
-
-        return object_loc
 
     def __discount1(self, x) -> np.float64:
         '''
@@ -84,8 +82,41 @@ class EnvInfo(object):
         Returns:
             None
         '''
+        
         func = lambda x: location_to_manhattan(agent_loc[x.投递机构], (x.lng, x.lat))
         self._data['dist'] = self._data[['投递机构','lng','lat']].apply(func, axis=1)
+
+        # TODO(thekips):try to change code below to run fast . And we can try cupy and only save [['投递机构','lng','lat','cost']].
+
+        # # way 1: by add agent_loc column
+        # self._data['dist'] = location_to_manhattan(self._data[['alng', 'alat']], self._data[['lng','lat']]) 
+        # print(self._data['dist'])
+
+        # # way 2
+        # for k, v in agent_loc:
+        #     self._data.loc[self._data['投递机构']==k, 'dist'] = location_to_manhattan(v, self._data.loc[self._data['投递机构']==k, ['lng', 'lat']])
+        # print(self._data['dist'])
+
+        # #way 3
+        # def func(x):
+        #     aloc = agent_loc[x.iloc[0]['投递机构']]
+        #     self._data.loc[x.index, 'dist'] = location_to_manhattan(aloc, self._data.loc[x.index, ['lng', 'lat']])
+        # self._data[['投递机构','lng', 'lat']].groupby(by=['投递机构']).apply(func)
+        # print(self._data['dist'])
+
+        # #way 4
+        # def func(x):
+        #     aloc = agent_loc[x.iloc[0]['投递机构']]
+        #     x.loc['dist'] = location_to_manhattan(aloc, x[['lng', 'lat']])
+        # self._data.groupby(by=['投递机构']).apply(func)
+        # print(self._data['dist'])
+
+        # #way 5
+        # from operator import itemgetter
+        # aloc = itemgetter(*self._data['投递机构'].values)(agent_loc)
+        # self._data.loc['dist'] = location_to_manhattan(aloc, self._data[['lng'], ['lat']])
+        # print(self._data['dist'])
+
 
     def __cal_semi_cost(self, x) -> Tuple[np.float64, np.float64]:
         '''
@@ -162,10 +193,10 @@ class EnvInfo(object):
             cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
         # calculate every department's cost separately.
-        print("Update dist.")
+        # print("Update dist.")
         # TODO(thekips): now comment next line to debug, please remember uncomment.
         # self.__update_dist(agent_loc)
-        print("Finish update dist.")
+        # print("Finish update dist.")
         self._data.groupby(by=['投递机构']).apply(in_cal_cost)
 
         return cost

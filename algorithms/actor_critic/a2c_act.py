@@ -5,7 +5,8 @@ from typing import Sequence, Dict
 # External Imports.
 import dm_env
 from dm_env import specs
-import einops
+from torch.utils.tensorboard import SummaryWriter
+from torch.distributions import distribution
 from torch.distributions.categorical import Categorical
 from torch.nn.modules import dropout
 import tree
@@ -25,6 +26,7 @@ use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
 print('we will use ', device)
 
+writer = SummaryWriter('logs')
 
 class A2C(base.Agent):
     """A simple TensorFlow-based feedforward actor-critic implementation."""
@@ -59,7 +61,7 @@ class A2C(base.Agent):
             returns.insert(0, value)
         return torch.tensor(returns)
 
-    def _step(self, trajectory: sequence.Trajectory):
+    def _step(self, trajectory: sequence.Trajectory, step: int):
         """Do a batch of SGD on the actor + critic loss."""
         observations, actions, rewards, discounts = trajectory
 
@@ -80,23 +82,24 @@ class A2C(base.Agent):
 
         # calculate the log probility of actions.
         policies = F.softmax(policies, dim=1)
+
         dists = [Categorical(policy) for policy in policies]
-        print('dists shape:', len(dists))
         log_probs = torch.stack([dist.log_prob(actions[i]) for i, dist in enumerate(dists)])
         log_probs = torch.squeeze(log_probs)
-        print('log_probs',log_probs.shape)
 
         # calculate actual values by the trajectory.
         returns = self.__compute_returns(final_value, rewards, discounts)
         returns = torch.squeeze(returns).detach()
 
-        print('returns shape:', returns.shape, 'values shape:', values.shape)
         advantage = returns - values
 
         # compute loss.
         actor_loss = -(advantage.detach() * log_probs).mean()
         critic_loss = advantage.pow(2).mean()
         loss = actor_loss + 0.5 * critic_loss
+
+        # log to tensor board event.
+        writer.add_scalar('Model loss', loss.item(), step)
 
         # update parameter.
         self._network.train()
@@ -119,21 +122,21 @@ class A2C(base.Agent):
         return base.Action(action)
 
     def update(
-            self,
-            timestep: dm_env.TimeStep,
-            action: base.Action,
-            new_timestep: dm_env.TimeStep,
+        self,
+        timestep: dm_env.TimeStep,
+        action: base.Action,
+        new_timestep: dm_env.TimeStep,
+        step: int,
     ):
         """Receives a transition and performs a learning update."""
 
-        print('timestep.observation a2c_act dtype is', timestep.observation.dtype, 'type is', type(timestep.observation))
         self._buffer.append(timestep, action, new_timestep)
 
         # When the batch is full, do a step of SGD.
         if self._buffer.full() or new_timestep.last():
             trajectory = self._buffer.drain()
             trajectory = tree.map_structure(torch.tensor, trajectory)
-            self._step(trajectory)
+            self._step(trajectory, step)
 
 class PolicyValueNet(nn.Module):
     def __init__(
@@ -162,7 +165,6 @@ class PolicyValueNet(nn.Module):
         if len(x.shape) == 3:
             x = torch.unsqueeze(x, 0)
         x = self._vit(x)   # x.shape turn from image_size to hidden_size.
-        print('vit output shape is ', x.shape)
         # x = einops.rearrange(x, 'i j k l -> i (j k l)')
 
         policies = self._policy_head(x)
@@ -220,9 +222,6 @@ class PolicyValueNet(nn.Module):
         # 网络的右端
         self._policy_head = nn.Linear(dense_sizes[-1], action_spec.num_values)
         self._value_head = nn.Linear(dense_sizes[-1], 1)
-
-        print(self.conv_layer)
-        print(self.fc_layer)
 
     def forward(self, inputs):
         x = self.conv_layer(inputs)

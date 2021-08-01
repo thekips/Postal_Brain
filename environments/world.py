@@ -82,15 +82,15 @@ class World(Environment):
         return Spec(shape, reduce(lambda x, y: x * y, shape), int, 'observation')
 
     def action_spec(self) -> Spec:
-        return Spec((Actions.num_values(), ), Actions.num_values(), int, 'action')
+        return Spec((1, ), Actions.num_values(), int, 'action')
 
     def _get_observation(self) -> np.ndarray:
         # TODO(thekips): make more agent when program can run.
         # image = Image(self._agent_loc, self._object_loc)
-        print('Gen the kde plot.')
+        # print('Gen the kde plot.')
         image = Image(self._agent_loc[52900009], self._object_loc[52900009])
         self.observation = image.getHeatMap()
-        print('Gen the kde plot end.')
+        # print('Gen the kde plot end.')
 
         return self.observation
 
@@ -114,7 +114,6 @@ class World(Environment):
         for agent in self._agent_loc.keys():
             reward = 0.0
             vector = Actions(action).vector()
-            print('vec', vector)
             self._agent_loc[agent] = (
                 self._agent_loc[agent][0] + vector[0],
                 self._agent_loc[agent][1] + vector[1]

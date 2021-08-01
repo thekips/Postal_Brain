@@ -1,2 +1,4 @@
 #ignore folder
 utils/data/
+models/
+logs/
