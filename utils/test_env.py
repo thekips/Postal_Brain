@@ -1,12 +1,13 @@
-from datetime import time
+#%%
+import time
 import os
+import sys
+sys.path.append(os.getcwd())
 from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 from pandas.core.frame import DataFrame
 import yaml
-
-from utils.typedef import Point
 
 CWD = os.path.dirname(__file__) + '/'
 
@@ -76,15 +77,14 @@ class EnvInfo(object):
 
     def __init__(self) -> None:
         super().__init__()
-        self.agent_name: dict
-        self.agent_loc: dict
-        self.object_loc: dict
+        self.object_loc = {}
 
         # read location of original department's information from config.yaml.
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
         self._data = read_cx(CWD + 'data/data_.csv')
         print("have read %d records" % len(self._data))
+        #TODO(thekips): read data only we need.
 
         # some information should share with environment.
         self.__get_agent(configs)
@@ -92,8 +92,13 @@ class EnvInfo(object):
 
         self._velocity = configs['velocity']
         self._ratio = configs['ratio']
+
+        self._data = self._data[['投递机构', 'lng', 'lat', 'dist', 'cost']]
+        print(list(self._data.columns))
     
     def __get_agent(self, configs) -> None:
+        self.agent_name = {}
+        self.agent_loc = {}
         records = read_cx(CWD + configs['department'])
         for record in records[['机构代码','机构简称','lat','lng']].values:
             self.agent_name[record[0]] = record[1]
@@ -113,71 +118,72 @@ class EnvInfo(object):
                 
         self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
 
-    def _update_dist(self, agent_loc: Dict) -> None:
-        '''
-        Use the new location of agent(department) to update dist column in self._data.
-        The dist is distance between record address and its corresponding department.
+        # TODO(thekips):try to change code below to run fast . And we can try cupy and only save [['投递机构','lng','lat','cost']].
 
-        Args:
-            objects: A dict from department's name to department's instant no and location.
+    def _update_dist1(self, agent_loc: Dict) -> None:
+        # way 1: we used to take this way.
+        btime = time.time()
 
-        Returns:
-            None
-        '''
-        
         func = lambda x: location_to_manhattan(agent_loc[x.投递机构], (x.lng, x.lat))
         self._data['dist'] = self._data[['投递机构','lng','lat']].apply(func, axis=1)
 
-        # TODO(thekips):try to change code below to run fast . And we can try cupy and only save [['投递机构','lng','lat','cost']].
-
-        # # way 1: by add agent_loc column
-        # self._data['dist'] = location_to_manhattan(self._data[['alng', 'alat']], self._data[['lng','lat']]) 
-        # print(self._data['dist'])
-
-        # # way 2
-        # for k, v in agent_loc:
-        #     self._data.loc[self._data['投递机构']==k, 'dist'] = location_to_manhattan(v, self._data.loc[self._data['投递机构']==k, ['lng', 'lat']])
-        # print(self._data['dist'])
-
-        # #way 3
-        # def func(x):
-        #     aloc = agent_loc[x.iloc[0]['投递机构']]
-        #     self._data.loc[x.index, 'dist'] = location_to_manhattan(aloc, self._data.loc[x.index, ['lng', 'lat']])
-        # self._data[['投递机构','lng', 'lat']].groupby(by=['投递机构']).apply(func)
-        # print(self._data['dist'])
-
-        # #way 4
-        # def func(x):
-        #     aloc = agent_loc[x.iloc[0]['投递机构']]
-        #     x.loc['dist'] = location_to_manhattan(aloc, x[['lng', 'lat']])
-        # self._data.groupby(by=['投递机构']).apply(func)
-        # print(self._data['dist'])
-
-        # #way 5
-        # from operator import itemgetter
-        # aloc = itemgetter(*self._data['投递机构'].values)(agent_loc)
-        # self._data.loc['dist'] = location_to_manhattan(aloc, self._data[['lng'], ['lat']])
-        # print(self._data['dist'])
-
-
-
-    def test(self, agent_loc: Dict) -> Dict:
-        '''
-        calculate each department's instant cost and distance.
-
-        Args:
-            obj_location: A dict from department's no to department's location(a tuple include lng and lat).
-
-        Returns:
-            A Dict from deparment's name to department's instant cost.
-        '''
-        # calculate every department's cost separately.
-        print("Update dist.")
-        btime = time.time()
-        self.__update_dist(agent_loc)
         etime = time.time()
-        print("Finish update dist.")
-        print("Totally %ds", etime - btime)
+        print("Way1, totally %fs" % (etime - btime))
 
+    def _update_dist2(self, agent_loc: Dict) -> None:
+        # way 2
+        btime = time.time()
 
+        for k in agent_loc:
+            self._data.loc[self._data['投递机构']==k, 'dist'] = location_to_manhattan(agent_loc[k], self._data.loc[self._data['投递机构']==k, ['lng', 'lat']].values)
+
+        etime = time.time()
+        print("Way2, totally %fs" % (etime - btime))
+
+    def _update_dist3(self, agent_loc: Dict) -> None:
+        #way 3
+        btime = time.time()
+
+        def func(x):
+            aloc = agent_loc[x.iloc[0]['投递机构']]
+            self._data.loc[x.index, 'dist'] = location_to_manhattan(aloc, self._data.loc[x.index, ['lng', 'lat']].values)
+        self._data[['投递机构','lng', 'lat']].groupby(by=['投递机构']).apply(func)
+
+        etime = time.time()
+        print("Way3, totally %fs" % (etime - btime))
+
+    def _update_dist4(self, agent_loc: Dict) -> None:
+        #way 4
+        btime = time.time()
+
+        def func(x: DataFrame):
+            aloc = agent_loc[x.iloc[0]['投递机构']]
+            self._data.loc[x.index, 'dist']= location_to_manhattan(aloc, x[['lng', 'lat']].values)
+        self._data.groupby(by=['投递机构']).apply(func)
+
+        etime = time.time()
+        print("Way4, totally %fs" % (etime - btime))
+
+    def _update_dist5(self, agent_loc: Dict) -> None:
+        #way 5
+        btime = time.time()
+
+        from operator import itemgetter
+        aloc = itemgetter(*self._data['投递机构'].values)(agent_loc)
+        self._data['dist'] = location_to_manhattan(aloc, self._data[['lng','lat']].values)
+
+        etime = time.time()
+        print("Way5, totally %fs" % (etime - btime))
+
+#%%
+# TODO(thekips): To test.
 env_info = EnvInfo()
+agent_loc = env_info.agent_loc
+#%%
+for k in agent_loc:
+    agent_loc[k] = (agent_loc[k][0] + 1, agent_loc[k][1] + 0.2)
+env_info._update_dist1(agent_loc)
+env_info._update_dist2(agent_loc)
+env_info._update_dist3(agent_loc)
+env_info._update_dist4(agent_loc)
+env_info._update_dist5(agent_loc)

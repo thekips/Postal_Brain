@@ -29,7 +29,7 @@ class EnvInfo(object):
         # read location of original department's information from config.yaml.
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
-        self._data = read_cx(CWD + 'data/data_.csv')
+        self._data = read_cx(CWD + 'data/data_.csv')[['投递机构', 'lng', 'lat', 'dist', 'cost']]
         print("have read %d records" % len(self._data))
 
         # some information should share with environment.
@@ -82,12 +82,11 @@ class EnvInfo(object):
         Returns:
             None
         '''
+        def func(x: DataFrame):
+            aloc = agent_loc[x.iloc[0]['投递机构']]
+            self._data.loc[x.index, 'dist']= location_to_manhattan(aloc, x[['lng', 'lat']].values)
+        self._data.groupby(by=['投递机构']).apply(func)
         
-        func = lambda x: location_to_manhattan(agent_loc[x.投递机构], (x.lng, x.lat))
-        self._data['dist'] = self._data[['投递机构','lng','lat']].apply(func, axis=1)
-
-        # TODO(thekips):try to change code below to run fast . And we can try cupy and only save [['投递机构','lng','lat','cost']].
-
         # # way 1: by add agent_loc column
         # self._data['dist'] = location_to_manhattan(self._data[['alng', 'alat']], self._data[['lng','lat']]) 
         # print(self._data['dist'])
@@ -97,21 +96,21 @@ class EnvInfo(object):
         #     self._data.loc[self._data['投递机构']==k, 'dist'] = location_to_manhattan(v, self._data.loc[self._data['投递机构']==k, ['lng', 'lat']])
         # print(self._data['dist'])
 
-        # #way 3
+        # # way 3
         # def func(x):
         #     aloc = agent_loc[x.iloc[0]['投递机构']]
         #     self._data.loc[x.index, 'dist'] = location_to_manhattan(aloc, self._data.loc[x.index, ['lng', 'lat']])
         # self._data[['投递机构','lng', 'lat']].groupby(by=['投递机构']).apply(func)
         # print(self._data['dist'])
 
-        # #way 4
+        # # way 4
         # def func(x):
         #     aloc = agent_loc[x.iloc[0]['投递机构']]
         #     x.loc['dist'] = location_to_manhattan(aloc, x[['lng', 'lat']])
         # self._data.groupby(by=['投递机构']).apply(func)
         # print(self._data['dist'])
 
-        # #way 5
+        # # way 5
         # from operator import itemgetter
         # aloc = itemgetter(*self._data['投递机构'].values)(agent_loc)
         # self._data.loc['dist'] = location_to_manhattan(aloc, self._data[['lng'], ['lat']])
@@ -138,10 +137,10 @@ class EnvInfo(object):
         cost = group.sum()['cost'].values
         count = group.count()['cost'].values.astype(np.float64)
         # use discount function to deal with the record.
-        count = np.piecewise(count, [count < 30, count >= 30], [self.__discount1, self.__discount2])
+        decount = np.piecewise(count, [count < 30, count >= 30], [self.__discount1, self.__discount2])
         # base time + time after discount.
         # divided by ratio to make average cost as 3 min.
-        sum = (count < 30).sum() / 30 + np.sum(count * cost, axis=0) / self._ratio
+        sum = (count < 30).sum() / 30 + np.sum(decount * cost, axis=0) / self._ratio
 
         # calculate the distance(can be used to calculate shift cost) should take.
         x_ = x.drop_duplicates(subset=['lng', 'lat'], keep='first', inplace=False)
@@ -193,10 +192,9 @@ class EnvInfo(object):
             cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
         # calculate every department's cost separately.
-        # print("Update dist.")
-        # TODO(thekips): now comment next line to debug, please remember uncomment.
-        # self.__update_dist(agent_loc)
-        # print("Finish update dist.")
+        print("Update dist.")
+        self.__update_dist(agent_loc)
+        print("Finish update dist.")
         self._data.groupby(by=['投递机构']).apply(in_cal_cost)
 
         return cost

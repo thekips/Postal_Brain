@@ -100,6 +100,7 @@ class A2C(base.Agent):
 
         # log to tensor board event.
         writer.add_scalar('Model loss', loss.item(), step)
+        print('Loss is:', loss.item())
 
         # update parameter.
         self._network.train()
