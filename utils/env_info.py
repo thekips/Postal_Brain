@@ -5,8 +5,6 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import yaml
 
-from utils.typedef import Point
-
 CWD = os.path.dirname(__file__) + '/'
 
 class EnvInfo(object):
@@ -29,7 +27,7 @@ class EnvInfo(object):
         # read location of original department's information from config.yaml.
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
-        self._data = read_cx(CWD + 'data/data_.csv')[['投递机构', 'lng', 'lat', 'dist', 'cost']]
+        self._data = read_cx(CWD + 'data/env.csv')
         print("have read %d records" % len(self._data))
 
         # some information should share with environment.
@@ -188,13 +186,14 @@ class EnvInfo(object):
 
         def in_cal_cost(x):
             dep_name = x.iloc[0]['投递机构']
-            # print(dep_name)
+            # TODO(thekips): add other dep_name to cal cost.
+            if dep_name != 52900009 and dep_name != '52900009':
+                cost[dep_name], dist[dep_name] = 0, 0
+                return
             cost[dep_name], dist[dep_name] = self.__cal_semi_cost(x)
 
         # calculate every department's cost separately.
-        print("Update dist.")
         self.__update_dist(agent_loc)
-        print("Finish update dist.")
         self._data.groupby(by=['投递机构']).apply(in_cal_cost)
 
         return cost
@@ -202,7 +201,7 @@ class EnvInfo(object):
     def num_obj(self) -> int:
         return len(self._data)
 
-def read_csv(path, low_memory=False) -> DataFrame:
+def read_csv(path, usecols, low_memory=False) -> DataFrame:
     '''
     read a csv file with encoding=gb18030.
 
@@ -214,11 +213,11 @@ def read_csv(path, low_memory=False) -> DataFrame:
         A dataframe object which include the content of file with the given path.
     '''
     try:
-        return pd.read_csv(path,encoding='gb18030',low_memory=low_memory)
+        return pd.read_csv(path, encoding='gb18030', usecols=usecols, low_memory=low_memory)
     except:
-        return pd.read_csv(path,low_memory=low_memory)
+        return pd.read_csv(path, usecols=usecols, low_memory=low_memory)
 
-def read_cx(path) -> DataFrame:
+def read_cx(path, usecols=None) -> DataFrame:
     '''
     Read a csv file or excel file like '.xlsx', '.xls'.
 
@@ -229,7 +228,7 @@ def read_cx(path) -> DataFrame:
         A dataframe object which include the content of file with the given path.
     '''
     try:
-        return read_csv(path)
+        return read_csv(path, usecols)
     except:
         return pd.read_excel(path, engine='openpyxl')
 

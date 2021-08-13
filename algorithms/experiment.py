@@ -35,8 +35,9 @@ def run(
             timestep = new_timestep
             step += 1
         
-        if(episode + 1) % 100 == 0:
-            print("Episode %d success." % (episode + 1))
+        # if(episode + 1) % 100 == 0:
+        #     print("Episode %d success." % (episode + 1))
+        print("Episode %d success." % (episode + 1))
         
         if True:
             torch.save(getattr(agent, '_network'), results_dir)
