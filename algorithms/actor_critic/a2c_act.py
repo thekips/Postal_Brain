@@ -5,7 +5,6 @@ from typing import Sequence, Dict
 # External Imports.
 import dm_env
 from dm_env import specs
-from torch.utils.tensorboard import SummaryWriter
 from torch.distributions import distribution
 from torch.distributions.categorical import Categorical
 from torch.nn.modules import dropout
@@ -26,7 +25,6 @@ use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
 print('we will use ', device)
 
-writer = SummaryWriter('logs')
 
 class A2C(base.Agent):
     """A simple TensorFlow-based feedforward actor-critic implementation."""
@@ -94,12 +92,12 @@ class A2C(base.Agent):
         advantage = returns - values
 
         # compute loss.
+        # TODO(thekips): optimize loss.
         actor_loss = -(advantage.detach() * log_probs).mean()
         critic_loss = advantage.pow(2).mean()
         loss = actor_loss + 0.5 * critic_loss
 
         # log to tensor board event.
-        writer.add_scalar('Model loss', loss.item(), step)
         print('Loss is:', loss.item())
 
         # update parameter.

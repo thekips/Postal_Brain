@@ -1,3 +1,4 @@
+import torch
 import os
 import sys
 from absl import app, flags
@@ -5,8 +6,12 @@ from absl import app, flags
 #local import
 sys.path.append(os.getcwd())
 from environments.world import World
-from algorithms.actor_critic.a2c_act import A2C, PolicyValueNet
+from algorithms.actor_critic.a2c_loc import A2C, PolicyValueNet
 from algorithms import experiment
+from utils.gpn_tsp import Attention, LSTM, GPN
+
+load_root = 'models/gpn/gpn_tsp2000.pt'
+tsp_model = torch.load(load_root).cuda()
 
 # Environment.
 flags.DEFINE_integer('max_steps', 1000, 'steps for agent to try in the environment')
@@ -27,14 +32,14 @@ FLAGS = flags.FLAGS
 def run(_):
     '''Runing experiment in a2c(output the action) by pytorch...'''
 
-    env = World(FLAGS.max_steps, FLAGS.discount, FLAGS.seed, FLAGS.n_action)
+    env = World(FLAGS.max_steps, FLAGS.discount, tsp_model, FLAGS.seed, FLAGS.n_action)
 
     vit_odim = 64
     agent = A2C(
         obs_spec=env.observation_spec(),
         action_spec=env.action_spec(),
         max_sequence_length=FLAGS.sequence_length,
-        network=PolicyValueNet((600, 400), (100, 100), vit_odim, env.action_spec()),
+        network=PolicyValueNet((600, 400), (100, 100), vit_odim),
         learning_rate=FLAGS.learning_rate,
         discount=FLAGS.discount
     )

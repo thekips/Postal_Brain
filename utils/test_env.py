@@ -1,15 +1,14 @@
 #%%
-import time
+from datetime import time
 import os
 import sys
 sys.path.append(os.getcwd())
 from typing import Dict, List, Tuple
-import numpy as np
 import pandas as pd
+import numpy as np
 from pandas.core.frame import DataFrame
-import yaml
 
-CWD = os.path.dirname(__file__) + '/'
+CWD = os.path.dirname(os.getcwd()) + '/'
 
 def read_csv(path, low_memory=False) -> DataFrame:
     '''
@@ -64,126 +63,62 @@ def location_to_manhattan(loc1, loc2):
     
     return distance if len(distance) > 1 else distance[0]
 
-class EnvInfo(object):
-    '''
-    Generate some info about env information.
+#%%
+import json
+import numpy as np
+import pandas as pd
+from concorde.tsp import TSPSolver
 
-    Attributes:
-        agent_name: A Dict from department no to department name.
-        agent_loc: A Dict from department no to department location.
-        velocity: A float representing postman's delivering velocity.
-        ratio: A float used to transform weight to hour. 
-    '''
+def getCenterPoint(data, num):
+    x_min, x_max = data['lng'].min(), data['lng'].max()
+    y_min, y_max = data['lat'].min(), data['lat'].max()
+    x_len = x_max - x_min
+    y_len = y_max - y_min
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.object_loc = {}
+    print(x_min, x_max)
+    print(y_min, y_max)
 
-        # read location of original department's information from config.yaml.
-        with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
-            configs = yaml.safe_load(f)
-        self._data = read_cx(CWD + 'data/data_.csv')
-        print("have read %d records" % len(self._data))
-        #TODO(thekips): read data only we need.
+    point_x = x_min + [x_len * (1 / 2 + i) / num for i in range(num)]
+    point_y = y_min + [y_len * (1 / 2 + i) / num for i in range(num)]
 
-        # some information should share with environment.
-        self.__get_agent(configs)
-        self.__get_obj()
+    return point_x, point_y
 
-        self._velocity = configs['velocity']
-        self._ratio = configs['ratio']
+def calTime(data, start_point):
+    xx = data['lat'].values.tolist()
+    yy = data['lng'].values.tolist()
+    xx.insert(0, start_point[0])
+    yy.insert(0, start_point[1])
 
-        self._data = self._data[['投递机构', 'lng', 'lat', 'dist', 'cost']]
-        print(list(self._data.columns))
-    
-    def __get_agent(self, configs) -> None:
-        self.agent_name = {}
-        self.agent_loc = {}
-        records = read_cx(CWD + configs['department'])
-        for record in records[['机构代码','机构简称','lat','lng']].values:
-            self.agent_name[record[0]] = record[1]
-            self.agent_loc[record[0]] = (record[2],record[3])
-    
-    def __get_obj(self) -> None: 
-        '''
-        use self._data to generate the objects' location.
+    solver = TSPSolver.from_data(xx, yy, 'MAN_2D')
+    res = solver.solve(verbose=False)
 
-        Returns:
-            object_loc: A dict from agent number to the location of it's objects.
-        '''
-        def gen_dict(x):
-            key = x["投递机构"].unique()[0]
-            value = [*zip(x.lat.values, x.lng.values)]
-            self.object_loc[key] = value
-                
-        self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
+    return res.optimal_value
 
-        # TODO(thekips):try to change code below to run fast . And we can try cupy and only save [['投递机构','lng','lat','cost']].
+def writeRes(key, value, path):
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            data = json.load(f)
+    else:
+        data = {}
 
-    def _update_dist1(self, agent_loc: Dict) -> None:
-        # way 1: we used to take this way.
-        btime = time.time()
+    data[key] = value
+    with open(path, 'w') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-        func = lambda x: location_to_manhattan(agent_loc[x.投递机构], (x.lng, x.lat))
-        self._data['dist'] = self._data[['投递机构','lng','lat']].apply(func, axis=1)
 
-        etime = time.time()
-        print("Way1, totally %fs" % (etime - btime))
-
-    def _update_dist2(self, agent_loc: Dict) -> None:
-        # way 2
-        btime = time.time()
-
-        for k in agent_loc:
-            self._data.loc[self._data['投递机构']==k, 'dist'] = location_to_manhattan(agent_loc[k], self._data.loc[self._data['投递机构']==k, ['lng', 'lat']].values)
-
-        etime = time.time()
-        print("Way2, totally %fs" % (etime - btime))
-
-    def _update_dist3(self, agent_loc: Dict) -> None:
-        #way 3
-        btime = time.time()
-
-        def func(x):
-            aloc = agent_loc[x.iloc[0]['投递机构']]
-            self._data.loc[x.index, 'dist'] = location_to_manhattan(aloc, self._data.loc[x.index, ['lng', 'lat']].values)
-        self._data[['投递机构','lng', 'lat']].groupby(by=['投递机构']).apply(func)
-
-        etime = time.time()
-        print("Way3, totally %fs" % (etime - btime))
-
-    def _update_dist4(self, agent_loc: Dict) -> None:
-        #way 4
-        btime = time.time()
-
-        def func(x: DataFrame):
-            aloc = agent_loc[x.iloc[0]['投递机构']]
-            self._data.loc[x.index, 'dist']= location_to_manhattan(aloc, x[['lng', 'lat']].values)
-        self._data.groupby(by=['投递机构']).apply(func)
-
-        etime = time.time()
-        print("Way4, totally %fs" % (etime - btime))
-
-    def _update_dist5(self, agent_loc: Dict) -> None:
-        #way 5
-        btime = time.time()
-
-        from operator import itemgetter
-        aloc = itemgetter(*self._data['投递机构'].values)(agent_loc)
-        self._data['dist'] = location_to_manhattan(aloc, self._data[['lng','lat']].values)
-
-        etime = time.time()
-        print("Way5, totally %fs" % (etime - btime))
+data = pd.read_csv('data/env.csv')
+#%%
+dep = 52910017
+data = data.loc[data['投递机构'] == dep]
+print("thekips: len of data is %d." % len(data))
 
 #%%
-# TODO(thekips): To test.
-env_info = EnvInfo()
-agent_loc = env_info.agent_loc
-#%%
-for k in agent_loc:
-    agent_loc[k] = (agent_loc[k][0] + 1, agent_loc[k][1] + 0.2)
-env_info._update_dist1(agent_loc)
-env_info._update_dist2(agent_loc)
-env_info._update_dist3(agent_loc)
-env_info._update_dist4(agent_loc)
-env_info._update_dist5(agent_loc)
+point_x, point_y = getCenterPoint(data, 1000)
+from matplotlib import pyplot as plt
+path = 'opt_value.json'
+
+for x in point_x:
+    for y in point_y:
+        print("The location to solve is:", x, y)
+        optimal_value = calTime(data, (x, y))
+        writeRes((x,y), optimal_value, path)

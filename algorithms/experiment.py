@@ -4,7 +4,7 @@ import torch
 
 def run(
     agent: Agent,
-    environment: dm_env.Environment,
+    env: dm_env.Environment,
     num_episodes: int,
     results_dir: str = 'models/actor_critic/default.pkl'
 ) -> None:
@@ -13,7 +13,7 @@ def run(
 
     Args:
         agent: The agent to train and evaluate.
-        environment: The environment to train on.
+        env: The environment to train on.
         num_episodes: Number of episodes to train for.
         verbose: Whether to also log to terminal.
     '''
@@ -21,12 +21,11 @@ def run(
     step = 1
     for episode in range(num_episodes):
         #Run an episode.
-        timestep = environment.reset()
+        timestep = env.reset()
 
         while not timestep.last():
             action = agent.select_action(timestep)
-            # print('The action is',action)
-            new_timestep = environment.step(action)
+            new_timestep = env.step(action)
 
             # Pass the (s, a, r, s')info to the agent.
             agent.update(timestep, action, new_timestep, step)

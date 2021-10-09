@@ -18,19 +18,25 @@ class Image(object):
 
         self.img = np.ndarray
 
-    def getHeatMap(self, isplot=False):
+    def __genBackground(self, isplot=False):
         # TODO(thekips): so slow that only read from old img.
-        # sns.kdeplot(x=self.object_x, y=self.object_y, shade=True)
-        # plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
-        # plt.axis('off')
-        # if isplot: plt.show()
-        # plt.savefig(CWD + 'res/current.jpg', dpi=100)
-        # plt.clf()
+        sns.kdeplot(x=self.object_x, y=self.object_y, shade=True)
+        plt.axis('off')
+        if isplot: plt.show()
+        plt.savefig(CWD + 'res/current.jpg', dpi=1, bbox_inches='tight')
+        plt.clf()
 
+    def getBackground(self, isplot=False):
         self.img = plt.imread(CWD + 'res/current.jpg') 
         return self.img
+    
+    def getImage(self, isplot=False):
+        self.img = plt.imread(CWD + 'res/current.jpg') 
+        plt.scatter(x=self.agent_x, y=self.agent_y, c='red')
 
-    def getScatterMap(self, isplot=False):
+        return
+
+    def getHeatMap(self, isplot=False):
         # TODO(thekips): so slow that only read from old img.
         # plt.scatter(x=self.object_x, y=self.object_y, c='blue')
         # plt.scatter(x=self.agent_x, y=self.agent_y, c='red')

@@ -63,44 +63,23 @@ class A2C(base.Agent):
 
     def _step(self, trajectory: sequence.Trajectory, step: int):
         """Do a batch of SGD on the actor + critic loss."""
-        observations, actions, rewards, discounts = trajectory
-
-        # Add dummy batch dimensions.
-        rewards = torch.unsqueeze(rewards, dim=-1)  # [T, 1]
-        discounts = torch.unsqueeze(discounts, dim=-1)  # [T, 1]
-        # print('rewards shape is',rewards.shape)
-        # print('discount shape is', discounts.shape)
-        # observations = torch.unsqueeze(observations, dim=1)  # [T+1, 1, ...]
+        observations, actions, costs, discounts = trajectory
 
         # calculate values by the value network.
-        observations, final_observation = observations[:-1], observations[-1]
-        policies, values = self._network(observations)
-        _, final_value = self._network(final_observation)
-        # print('values shape', values.shape, 'final_value', final_value.shape)
-        # print('policies', policies.shape)
+        observations = observations[:-1]
+        _, values = self._network(observations)
         values = torch.squeeze(values)
 
-        # calculate the log probility of actions.
-        policies = F.softmax(policies, dim=1)
-
-        dists = [Categorical(policy) for policy in policies]
-        log_probs = torch.stack([dist.log_prob(actions[i]) for i, dist in enumerate(dists)])
-        log_probs = torch.squeeze(log_probs)
-
-        # calculate actual values by the trajectory.
-        returns = self.__compute_returns(final_value, rewards, discounts)
-        returns = torch.squeeze(returns).detach()
-
-        advantage = returns - values
-
         # compute loss.
-        actor_loss = -(advantage.detach() * log_probs).mean()
+        advantage = costs - values
+        actor_loss = costs.mean()
         critic_loss = advantage.pow(2).mean()
         loss = actor_loss + 0.5 * critic_loss
+        # print("actor_loss ", actor_loss, "critic_loss", critic_loss, "loss", loss)
 
         # log to tensor board event.
-        writer.add_scalar('Model loss', loss.item(), step)
-        print('Loss is:', loss.item())
+        writer.add_scalar('Multi-Step_Loss', loss.item(), step)
+        print('Multi-Step loss is:', loss.item())
 
         # update parameter.
         self._network.train()
@@ -161,10 +140,11 @@ class PolicyValueNet(nn.Module):
         x = x / 255 # take value in x into [0, 1] as float.
         if len(x.shape) == 3:
             x = torch.unsqueeze(x, 0)
-        x = self._vit(x)   # x.shape turn from image_size to hidden_size.
+        # (thekips):When use pytorch<=1.3.0, you should use x.float() to avoid scalar type error.
+        x = self._vit(x.float())   # x.shape turn from image_size to hidden_size.
         # x = einops.rearrange(x, 'i j k l -> i (j k l)')
 
         policies = self._policy_head(x)
         value = self._value_head(x)
 
-        return policies, value
+        return policies.squeeze().tolist(), value
