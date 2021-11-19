@@ -1,4 +1,5 @@
 import os
+from time import time
 import torch
 from typing import Dict, List
 import numpy as np
@@ -89,108 +90,106 @@ class EnvInfo(object):
         super().__init__()
         self.agent_name = {} 
         self.agent_loc = {}
-        self.object_loc = {}
 
         # read location of original department's information from config.yaml.
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
         self._data = read_cx(CWD + data_path)
+        self._data = self._data.iloc[:10000]
         self.__get_agent(configs)
         self.__process()
 
         # some information should share with environment.
-        self.__get_obj()
-        self.__dist_path = CWD + dist_path
-        self.__get_dist(self.__dist_path)
+        # self.__dist_path = CWD + dist_path
+        # self.__get_dist(self.__dist_path)
 
         # self._velocity = configs['velocity']
         # self._ratio = configs['ratio']
 
-    def __get_dist(self, path):
-        if os.path.exists(path):
-            with open(path, 'r') as f:
-                self.__distance = json.load(f)
-        else:
-            self.__distance = {}
-        
-    def __process(self):
-        print("have read %d records" % len(self._data))
-        self._data.drop_duplicates(subset=['lng', 'lat'], inplace=True)
-        print("after del, %d records" % len(self._data))
-        
-        lng_min = self._data['lng'].min()
-        lng_abs = self._data['lng'].max() - lng_min
-        lat_min = self._data['lat'].min()
-        lat_abs = self._data['lat'].max() - lat_min
-        self._data['lng'] = (self._data['lng'] - lng_min) / lng_abs
-        self._data['lat'] = (self._data['lat'] - lat_min) / lat_abs
-
-        for key in self.agent_loc.keys():
-            agent_loc = self.agent_loc[key]
-            lat = (agent_loc[0] - lat_min) / lat_abs
-            lng = (agent_loc[1] - lng_min) / lng_abs 
-            self.agent_loc[key] = (lat, lng)
-    
     def __get_agent(self, configs) -> None:
         records = read_cx(CWD + configs['department'])
         for record in records[['机构代码','机构简称','lat','lng']].values:
             self.agent_name[record[0]] = record[1]
             self.agent_loc[record[0]] = (record[2],record[3])
     
-    def __get_obj(self) -> None: 
-        '''
-        use self._data to generate the objects' location.
+    def __process(self):
+        print("have read %d records" % len(self._data))
+        x = self._data.groupby(['lng','lat']).sum()
+        print("after del, %d records" % len(x))
 
-        Returns:
-            object_loc: A dict from agent number to the location of it's objects.
-        '''
-        def gen_dict(x):
-            key = x["投递机构"].unique()[0]
-            value = [*zip(x.lat.values, x.lng.values)]
-            self.object_loc[key] = value
-                
-        self._data[['投递机构','lat','lng']].groupby(by=['投递机构']).apply(gen_dict)
+        location = x.index.to_numpy()
+        self.objects_wei = x['重量'].to_numpy()
+        assert(self.objects_wei.shape[0] == location.shape[0])
 
-    def __cal_optimal_path(self, agent_loc: tuple, objects_loc: List[tuple]):
+        lng = np.array([x[0] for x in location])
+        lat = np.array([x[1] for x in location])
+        lng_min = min(lng)
+        lng_abs = max(lng) - lng_min
+        lat_min = min(lat)
+        lat_abs = max(lat) - lat_min
+        lat = (lat - lat_min) / lat_abs
+        lng = (lng - lng_min) / lng_abs
+        self.objects_loc = [*zip(lat, lng)]
+
+        self.agent_loc = (lat.mean(), lng.mean())
+        lat = (self.agent_loc[0] - lat_min) / lat_abs
+        lng = (self.agent_loc[1] - lng_min) / lng_abs 
+        self.agent_loc = (lat, lng) #TODO(thekips): Multi-Agent
+    
+    # def __get_dist(self, path):
+    #     if os.path.exists(path):
+    #         with open(path, 'r') as f:
+    #             self.__distance = json.load(f)
+    #     else:
+    #         self.__distance = {}
+        
+    def __cal_one(self, agent_loc: tuple):
         '''
         Args:
             x: a dataframe should have columns [['lat', 'lng']], start point should be at 0 line.
             velocity: a float(km/h) to calculate time of shift, to turn dist(km) to time(h).
         '''
-        objects_loc.insert(0, agent_loc)
-        data = torch.Tensor(objects_loc).cuda()
+        time1 = time()
+        data = [agent_loc] + self.objects_loc
+        data = torch.Tensor(data).cuda()
         mask = torch.zeros(data.shape[0]).cuda()
-        solution = []
+        solution = []   #recording the coordination.
+        burden = 0  #recording the weight cost.
 
         mask = mask.unsqueeze(0)
         data = data.unsqueeze(0)
         x = data[:, 0, :]
         h = None
         c = None
+        time2 = time()
         for i in range(data.shape[1]):
             out, h, c, _ = self._model(x=x, X_all=data, h=h, c=c, mask=mask)
             idx = torch.argmax(out, dim=1)
 
+            burden += (i + 1) * self.objects_wei[idx - 1] 
             x = data[0, idx]
             solution.append(x.cpu().numpy())
             mask[0, idx] += -np.inf
 
+        time3 = time()
         solution.append(solution[0])
         solution = np.array(solution)
         solution = solution.squeeze()
         distance = location_to_manhattan(solution[:-1], solution[1:])
+        time4 = time()
 
+        print(time2 - time1, " ", time3 - time2, " ", time4 - time3)
         # # Plot image.
         # x_coor,y_coor = zip(*solution)
         # plt.step(x_coor, y_coor, label='manhattan')
         # plt.show()
 
-        return distance
+        return distance + burden
 
     def set_model(self, tsp_model):
         self._model = tsp_model
 
-    def cal_cost(self, agents_loc: Dict) -> Dict:
+    def cal_cost(self, agent_loc: Dict) -> Dict:
         '''
         calculate each department's instant cost and distance.
 
@@ -200,12 +199,8 @@ class EnvInfo(object):
         Returns:
             A Dict from deparment's name to department's instant cost.
         '''
-        cost = 0
 
-        for key in agents_loc.keys():
-            if key != 52900009:
-                continue
-            cost += self.__cal_optimal_path(agents_loc[key], self.object_loc[key])
+        cost = self.__cal_one(agent_loc)
 
         # self.__distance[str(agents_loc)] = cost
         # with open(self.__dist_path, 'w') as f:
@@ -216,4 +211,4 @@ class EnvInfo(object):
     def num_obj(self) -> int:
         return len(self._data)
 
-env_info = EnvInfo('data/test_.csv', 'dist/test.csv')
+env_info = EnvInfo('data/env.csv', 'dist/test.csv')

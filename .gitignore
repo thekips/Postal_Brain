@@ -2,3 +2,7 @@
 utils/data/
 models/
 logs/
+
+#ignore file type
+*.pkl
+*.bak

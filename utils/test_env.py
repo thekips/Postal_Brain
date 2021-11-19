@@ -106,11 +106,16 @@ def writeRes(key, value, path):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-data = pd.read_csv('data/env.csv')
+#%%
+# Get data to run
+data = pd.read_csv('data/lanshou_.csv', encoding='gb18030')
 #%%
 dep = 52910017
 data = data.loc[data['投递机构'] == dep]
 print("thekips: len of data is %d." % len(data))
+x = data.groupby(['lng','lat']).sum()
+index = x.index.to_numpy()
+weight = x['重量'].to_numpy()
 
 #%%
 point_x, point_y = getCenterPoint(data, 1000)

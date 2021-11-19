@@ -60,11 +60,11 @@ class Environment(dm_env.Environment, abc.ABC):
 
   def step(self, action: int) -> dm_env.TimeStep:
     """Steps the environment and implements the auto-reset behavior."""
-    if self._reset_next_step:
-      return self.reset()
-    timestep = self._step(action)
-    self._reset_next_step = timestep.last()
-    return timestep
+    # if self._reset_next_step:
+    #   return self.reset()
+    obs, reward = self._step(action)
+    # self._reset_next_step = (reward == 18)
+    return obs, reward
 
   @abc.abstractmethod
   def _reset(self) -> dm_env.TimeStep:

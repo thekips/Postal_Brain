@@ -1,7 +1,7 @@
 # Built-in Library
 from re import I
 from typing import Sequence, Dict
-
+import time
 # External Imports.
 import dm_env
 from dm_env import specs
@@ -63,6 +63,7 @@ class A2C(base.Agent):
 
     def _step(self, trajectory: sequence.Trajectory, step: int):
         """Do a batch of SGD on the actor + critic loss."""
+        stime = time.time()
         observations, actions, costs, discounts = trajectory
 
         # calculate values by the value network.
@@ -72,22 +73,27 @@ class A2C(base.Agent):
 
         # compute loss.
         advantage = costs - values
+        print("costs shape:", costs.shape, "costs", costs, "values", values)
         actor_loss = costs.mean()
         critic_loss = advantage.pow(2).mean()
-        loss = actor_loss + 0.5 * critic_loss
+        loss = (actor_loss + 0.05 * critic_loss).pow(0.1)
         # print("actor_loss ", actor_loss, "critic_loss", critic_loss, "loss", loss)
 
         # log to tensor board event.
-        writer.add_scalar('Multi-Step_Loss', loss.item(), step)
+        writer.add_scalar('Multi-Step_Loss', loss.item())
         print('Multi-Step loss is:', loss.item())
 
         # update parameter.
         self._network.train()
+        #TODO(thekips): test.
+        for p in self._network._policy_head.parameters():
+            p.requires_grad = False
         self._optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self._network.parameters(), 0.5)
 
         self._optimizer.step()
+        print("Time of step use %ds" % (time.time() - stime))
 
     def select_action(self, timestep: dm_env.TimeStep) -> base.Action:
         """Selects actions according to the latest softmax policy."""
