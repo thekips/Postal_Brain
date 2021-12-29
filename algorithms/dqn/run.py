@@ -14,7 +14,7 @@ import gym
 import os
 sys.path.append(os.getcwd())
 from algorithms.dqn.wrappers import make_env
-from environments.world import World
+from environments.world import ABSWorld, RELWorld
 # from utils.gpn_tsp import Attention, LSTM, GPN
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('logs')
@@ -60,7 +60,7 @@ def obs2state(obs):
     return state.unsqueeze(0)
 
 def run(_):
-    env = World(FLAGS.max_steps, None, FLAGS.seed, FLAGS.n_action)
+    env = ABSWorld(FLAGS.max_steps, None, FLAGS.seed, FLAGS.n_action)
     agent = Agent(
         discount=FLAGS.discount,
         lr=FLAGS.learning_rate,
@@ -82,16 +82,15 @@ def run(_):
         while True:
             state = obs2state(env._get_observation(isplot=True))
 
-            Q = agent.main_net(state.to('cuda'))
-            print(Q)
+            # Q = agent.main_net(state.to('cuda'))
+            # print(Q)
 
             action = agent.select_action(state, mode='test')
             _, reward = env.step(action)
             print(reward)
 
             if step_debug == 'y':
-                posit = input("input the tuple: (")
-                env._agent_loc = eval('(' + posit + ')')
+                os.system('read -n 1')
     
     if FLAGS.mode == 'test':
         agent.load_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
@@ -107,10 +106,14 @@ def run(_):
             time.sleep(0.4)
 
             if int(action) == 4:
+                print('reset env')
                 time.sleep(2)
                 print(env._agent_loc)
                 env.reset()
 
+    if FLAGS.mode == 'trans':
+        print('thekips: use previous mode to transfer.')
+        agent.load_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
 
     mean_rewards = []
     episode_reward = []

@@ -95,9 +95,10 @@ class EnvInfo(object):
         with open(CWD + 'config.yaml', 'r', encoding='utf-8') as f:
             configs = yaml.safe_load(f)
         self._data = read_cx(CWD + data_path)
-        self._data = self._data.iloc[:10000]
         self.__get_agent(configs)
         self.__process()
+        with open(CWD + 'dist/true_opt_value.json') as f:
+            self.opt_value = json.load(f)
 
         # some information should share with environment.
         # self.__dist_path = CWD + dist_path
@@ -114,7 +115,7 @@ class EnvInfo(object):
     
     def __process(self):
         print("have read %d records" % len(self._data))
-        x = self._data.groupby(['lng','lat']).sum()
+        x = self._data.iloc[:1000].groupby(['lng','lat']).sum()
         print("after del, %d records" % len(x))
 
         location = x.index.to_numpy()

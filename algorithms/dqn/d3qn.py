@@ -18,14 +18,14 @@ class DuelingDQN(nn.Module):
         :param n_actions (int): number of outputs
         """
         super(DuelingDQN, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=7, stride=4)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
         def conv2d_out_size(input, kernel_size, stride, padding=0):
             return (input + padding * 2 - kernel_size) // stride + 1
-        convw = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[0], 8, 4), 4, 2), 3, 1)
-        convh = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[1], 8, 4), 4, 2), 3, 1)
+        convw = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[0], 7, 4), 3, 2), 3, 1)
+        convh = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[1], 7, 4), 3, 2), 3, 1)
 
         self.fc4 = nn.Linear(64 * convw * convh, 512)
 
@@ -84,7 +84,7 @@ class Agent:
             if self.n_steps % self.replace == 0:
                 self.update_target()
 
-        epsilon = 0.5 * (1 / (self.n_steps / 10 + 1))
+        epsilon = 0.5 * (1 / (self.n_steps / 1000 + 1))
 
         if epsilon <= np.random.uniform(0, 1) or mode == 'test':
             self.main_net.eval()
@@ -94,6 +94,7 @@ class Agent:
                 # _action = self.main_net(state.to('cuda'))
                 # print(_action)
                 # action = _action.max(1)[1].view(1, 1)
+                # print(action)
 
         else:
             action = torch.tensor([[random.randrange(self.n_actions)]], device=self.device, dtype=torch.long)

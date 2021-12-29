@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import enum
 
 from numpy import random
@@ -6,6 +7,7 @@ import matplotlib.pyplot as plt
 import dm_env
 import numpy as np
 import seaborn as sns
+# from abc import abstractmethod
 
 from environments.base import Environment
 from utils.env_info import env_info
@@ -18,9 +20,9 @@ class StandardActions(enum.IntEnum):
     
     def vector(self):
         return (
-            (-1, -1), (-1, 0), (-1, 1),
-            ( 0, -1), ( 0, 0), ( 0, 1),
-            ( 1, -1), ( 1, 0), ( 1, 1),
+            (-1, -1), (0, -1), (1, -1),
+            (-1,  0), (0,  0), (1,  0),
+            (-1,  1), (0,  1), (1,  1),
         )[int(self)]
     @staticmethod
     def num_values():
@@ -43,22 +45,11 @@ class SmallActions(enum.IntEnum):
 
 Actions = StandardActions
 
-# def generate_reward(col, rec):
-#     x = -1 * (col / 10 - 4) ** 2 + 8
-#     y = -1 * (rec / 10 - 6) ** 2 + 12
-#     return x + y
-
-# res = [[0 for i in range(100)] for j in range(100)]
-# for i in range(0, 100, 1):
-#     x = -1 * (i / 10 - 4) ** 2 + 8
-#     for j in range(0, 100, 1):
-#         y = -1 * (j / 10 - 6) ** 2 + 12
-#         res[i][j] = x + y
 fig = plt.figure()
-grid_size = 10
+grid_size = 100
 
-rex = lambda x : np.arctan(x - 7) ** 2 + np.cos(2 * x)
-rey = lambda y : np.arctan(y - 7) ** 2 + np.cos(2 * y)
+rex = lambda x : -1 * np.arctan(x - 6) ** 2
+rey = lambda y : -1 * np.arctan(y - 2) ** 2
 
 def generate_reward(col, rec):
     return float(rex(col) + rey(rec))
@@ -69,6 +60,10 @@ for i in range(0, grid_size, 1):
     for j in range(0, grid_size, 1):
         y = rey(j)
         res[j][i] = x + y
+
+# def generate_reward(col, rec):
+#     return 3000 / env_info.opt_value[str((col, rec))]
+
 
 class World(Environment):
     def __init__(
@@ -96,15 +91,12 @@ class World(Environment):
         self._rng = np.random.RandomState(seed)
         self._timestep = 0
         
-        # self._plot = plt.imshow(np.empty(self.shape))
-        
         env_info.set_model(tsp_model)
 
-        env_info.agent_loc = (random.randint(0, grid_size), random.randint(0, grid_size))
-        env_info.objects_loc = res
         self._col = grid_size
         self._rec = grid_size
 
+        self._process()
         self._agent_loc = env_info.agent_loc
         self._object_loc = env_info.objects_loc
 
@@ -112,6 +104,18 @@ class World(Environment):
 
         print('Environment reset.')
         self._reset()
+
+    def _process(self):
+        data = env_info._data.drop_duplicates(['lng', 'lat'], keep='first')
+        data = data.iloc[:1000]
+        print("thekips: len of data is %d." % len(data))
+        xx = data['lat'].to_numpy()
+        xx = grid_size * (xx - xx.min()) / (xx.max() - xx.min())
+        yy = data['lng'].to_numpy()
+        yy = grid_size * (yy - yy.min()) / (yy.max() - yy.min())
+
+        env_info.agent_loc = (random.randint(0, grid_size), random.randint(0, grid_size))
+        env_info.objects_loc = (xx, yy)
 
     def observation_spec(self):
         return self.observation.shape
@@ -125,6 +129,7 @@ class World(Environment):
         # print('Gen the kde plot.')
         
         plt.cla()
+        # plt.scatter(self._object_loc[0], self._object_loc[1])
         sns.heatmap(res, cmap='Greys', cbar=False)
         plt.scatter(x=self._agent_loc[0] + 0.5,y=self._agent_loc[1] + 0.5,c='red')
         plt.axis('off')
@@ -151,16 +156,54 @@ class World(Environment):
 
         return self._get_observation()
 
+    @abstractmethod
+    def _step(self, action):
+        pass
+
+    def _draw_item(self):
+        plt.clf()
+        plt.imshow(self.observation)
+        plt.show()
+
+    def bsuite_info(self):
+        return {}
+
+class ABSWorld(World):
     def _step(self, action):
         action = int(action)
         self._timestep += 1
 
         # update agent
         vector = Actions(action).vector()
+        # print('before is:', self._agent_loc)
         self._agent_loc = (
             min(max(0, self._agent_loc[0] + vector[0]), self._col - 1),
             min(max(0, self._agent_loc[1] + vector[1]), self._rec - 1)
         )
+        # print('now is:', self._agent_loc)
+
+        # compute reward by the cost
+        reward = generate_reward(self._agent_loc[0], self._agent_loc[1])
+
+        # self._old_cost = cost
+        if self._timestep >= self.max_steps:
+            return self._reset(), reward
+
+        return self._get_observation(), reward
+
+class RELWorld(World):
+    def _step(self, action):
+        action = int(action)
+        self._timestep += 1
+
+        # update agent
+        vector = Actions(action).vector()
+        # print('before is:', self._agent_loc)
+        self._agent_loc = (
+            min(max(0, self._agent_loc[0] + vector[0]), self._col - 1),
+            min(max(0, self._agent_loc[1] + vector[1]), self._rec - 1)
+        )
+        # print('now is:', self._agent_loc)
 
         # compute reward by the cost
         reward = generate_reward(self._agent_loc[0], self._agent_loc[1]) - self._agent_reward
@@ -171,12 +214,3 @@ class World(Environment):
             return self._reset(), reward
 
         return self._get_observation(), reward
-
-    def _draw_item(self):
-        plt.clf()
-        plt.imshow(self.observation)
-        plt.show()
-
-    def bsuite_info(self):
-        return {}
-
