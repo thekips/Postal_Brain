@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import enum
+from matplotlib import colors
 
 from numpy import random
 
@@ -46,23 +47,27 @@ class SmallActions(enum.IntEnum):
 Actions = StandardActions
 
 fig = plt.figure()
-grid_size = 100
+grid_size = 10
 
-rex = lambda x : -1 * np.arctan(x - 6) ** 2
-rey = lambda y : -1 * np.arctan(y - 2) ** 2
-
-def generate_reward(col, rec):
-    return float(rex(col) + rey(rec))
-
-res = [[0 for i in range(grid_size)] for j in range(grid_size)]
-for i in range(0, grid_size, 1):
-    x = rex(i)
-    for j in range(0, grid_size, 1):
-        y = rey(j)
-        res[j][i] = x + y
+# rex = lambda x : -1 * np.arctan(x - 6) ** 2
+# rey = lambda y : -1 * np.arctan(y - 2) ** 2
 
 # def generate_reward(col, rec):
-#     return 3000 / env_info.opt_value[str((col, rec))]
+#     return float(rex(col) + rey(rec))
+
+res = [[0 for i in range(grid_size)] for j in range(grid_size)]
+# for i in range(0, grid_size, 1):
+#     x = rex(i)
+#     for j in range(0, grid_size, 1):
+#         y = rey(j)
+#         res[j][i] = x + y
+
+for i in range(0, grid_size, 1):
+    for j in range(0, grid_size, 1):
+        res[i][j] = env_info.opt_value[grid_size - 1 - i][j]
+        
+def generate_reward(col, rec):
+    return env_info.opt_value[grid_size - 1 - rec][col]
 
 
 class World(Environment):
@@ -102,7 +107,6 @@ class World(Environment):
 
         # self._old_cost = env_info.cal_cost(self._agent_loc)
 
-        print('Environment reset.')
         self._reset()
 
     def _process(self):
@@ -131,12 +135,13 @@ class World(Environment):
         plt.cla()
         # plt.scatter(self._object_loc[0], self._object_loc[1])
         sns.heatmap(res, cmap='Greys', cbar=False)
+        # sns.heatmap(res, cmap='Greys', cbar=False, annot=True)
         plt.scatter(x=self._agent_loc[0] + 0.5,y=self._agent_loc[1] + 0.5,c='red')
         plt.axis('off')
         fig.canvas.draw()
         if isplot:
             plt.show(block=False)
-            plt.pause(0.05)
+            plt.pause(10)
         self.observation = np.frombuffer(fig.canvas.tostring_rgb(),dtype=np.uint8).reshape(fig.canvas.get_width_height()[::-1] + (3,))
         # image = Image(self._agent_loc, self._object_loc)
         # self.observation = image.getHeatMap(color)
@@ -146,7 +151,6 @@ class World(Environment):
 
     def _reset(self) -> dm_env.TimeStep:
         # self.art = self._art.copy()
-        print('thekips: reset env.')
         self._timestep = 0
     
         # reset agent at initial location.
@@ -160,10 +164,42 @@ class World(Environment):
     def _step(self, action):
         pass
 
-    def _draw_item(self):
-        plt.clf()
-        plt.imshow(self.observation)
-        plt.show()
+    def _draw_item(self, pos=(7, 6), mode='scatter', is_patch=False, cbar=False, fmt='%.2f'):
+        
+        plt.cla()
+        plt.rcParams['savefig.facecolor']='#efefef'
+        # plt.scatter(self._object_loc[0], self._object_loc[1])
+        sns.heatmap(res, cmap='Greys', cbar=False)
+        # sns.heatmap(res, cmap='Greys', cbar=False, annot=True)
+        # if mode == 'scatter':
+        #     plt.scatter(self._object_loc[0], self._object_loc[1])
+        # elif mode == 'heatmap':
+        #     print('draw')
+        #     print(res)  #TODEL
+        #     sns.heatmap(res, cmap='Greys', cbar=False, annot=True)
+        
+        plt.scatter(x=pos[0] + 0.5,y=pos[1] + 0.5,c='red')
+        if is_patch == True:
+            for i in range(grid_size):
+                plt.axhline(i, 0, 1, color='w')
+                plt.axvline(i, 0, 1, color='w')
+        # plt.xlim((0, grid_size))
+        # plt.ylim((0, grid_size))
+        plt.axis('off')
+        fig.canvas.draw()
+        plt.show(block=False)
+
+        pname = '_patch' if is_patch else '_nopatch'
+        plt.savefig('utils/res/' + mode + pname + '.pdf', bbox_inches='tight', pad_inches=0)
+        plt.savefig('utils/res/' + mode + pname + '.jpg', bbox_inches='tight', pad_inches=0)
+        plt.pause(9)
+        plt.close()
+
+        # image = Image(self._agent_loc, self._object_loc)
+        # self.observation = image.getHeatMap(color)
+        # print('Gen the kde plot end.')
+
+        return self.observation
 
     def bsuite_info(self):
         return {}

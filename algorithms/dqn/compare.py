@@ -1,7 +1,7 @@
-import argparse
+from concurrent.futures.process import ProcessPoolExecutor
+from torch.multiprocessing import set_start_method
+set_start_method('spawn')
 from itertools import count
-import math
-import random
 import numpy as np
 import time
 import torch
@@ -15,9 +15,8 @@ sys.path.append(os.getcwd())
 from algorithms.dqn.wrappers import make_env
 from environments.world import ABSWorld, RELWorld
 # from utils.gpn_tsp import Attention, LSTM, GPN
+from torch.utils.tensorboard import SummaryWriter
 
-load_root = 'models/gpn/gpn_tsp2000.pt'
-# tsp_model = torch.load(load_root).cuda()
 
 flags.DEFINE_string('comment', 'Train with A2C model.', 'comment you want to print.')
 
@@ -38,15 +37,15 @@ flags.DEFINE_integer('replace', 1000, 'Interval for replacing target network')
 
 flags.DEFINE_float('learning_rate', 1e-4, 'the learning rate')
 flags.DEFINE_float('discount', .99, 'discounting on the agent side')
+flags.DEFINE_integer('model', 1, 'choose model')
 
 FLAGS = flags.FLAGS
 
-# from algorithms.dqn.d3qn import Agent
-from algorithms.dqn.d3qn import Agent
 
 use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
 print('we will use ', device)
+
 
 def obs2state(obs):
     """ 
@@ -59,10 +58,13 @@ def obs2state(obs):
 
 def run(_):
     env = ABSWorld(FLAGS.max_steps, None, FLAGS.seed, FLAGS.n_action)
-    FLAGS.mode = 'draw'
-    if FLAGS.mode == 'draw':
-        env._draw_item(pos=(7,6) ,mode='heatmap', is_patch=False)
-        return
+
+    if FLAGS.model == 1:
+        from algorithms.dqn.d3qn import Agent
+        cwriter = SummaryWriter('logs/dtrain' + str(int(time.time())))
+    elif FLAGS.model == 2:
+        from algorithms.dqn.vd3qn import Agent
+        cwriter = SummaryWriter('logs/vtrain' + str(int(time.time())))
 
     agent = Agent(
         discount=FLAGS.discount,
@@ -75,56 +77,7 @@ def run(_):
         replace=FLAGS.replace,
         device=device
     )
-    if FLAGS.mode == 'debug':
-        agent.load_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
-        torch.set_printoptions(profile='full')
-        step_debug = input("Please input whether step(y/n):")
-        posit = input("input the tuple: (")
-        env._agent_loc = eval('(' + posit + ')')
-        state = obs2state(env._get_observation(isplot=True))
-
-        while True:
-
-            # Q = agent.main_net(state.to('cuda'))
-            # print(Q)
-
-            action = agent.select_action(state, mode='test')
-            _, reward = env.step(action)
-            print(reward)
-            state = obs2state(env._get_observation(isplot=True))
-
-            if step_debug == 'y':
-                os.system('read -n 1')
     
-    if FLAGS.mode == 'test':
-        agent.load_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
-        state = obs2state(env._get_observation(isplot=True))
-        while True:
-
-            Q = agent.main_net(state.to('cuda'))
-            print(Q)
-
-            action = agent.select_action(state, mode=FLAGS.mode)
-            _, reward = env.step(action)
-            print(reward)
-            state = obs2state(env._get_observation(isplot=True))
-            time.sleep(0.4)
-
-            if int(action) == 4:
-                print('reset env')
-                time.sleep(2)
-                print(env._agent_loc)
-                env.reset()
-
-    from torch.utils.tensorboard import SummaryWriter
-    writer = SummaryWriter('logs/run')
-
-    if FLAGS.mode == 'trans':
-        print('thekips: use previous mode to transfer.')
-        agent.load_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
-
-    mean_rewards = []
-    episode_reward = []
     n_steps = 0
 
     for episode in range(FLAGS.num_episodes):
@@ -133,17 +86,13 @@ def run(_):
 
         # 记录 reward
         total_reward = 0.0
-        stay_cnt = 0
-        old_reward = 0
-        flag = False
-        for t in count():
+
+        for _ in count():
             n_steps += 1
 
             action = agent.select_action(state, mode=FLAGS.mode)
             
-            # print('agent loc and mean is', env._agent_loc, np.array(state).mean()) 
             obs, reward = env.step(action)
-            # print('action is ', action, 'reward is ', reward)
             total_reward += reward
             
             next_state = obs2state(obs)
@@ -158,26 +107,35 @@ def run(_):
 
             if n_steps % 100 == 0:
                 break
-            # stay_cnt = stay_cnt + 1 if old_reward == reward else 0
-            # old_reward = reward
-            # if stay_cnt == 10:
-            #     print("10 steps stay a pos")
-            #     break
 
-        
         print('Total steps: {} \t Episode: {}/{} \t Total reward: {}'.format(n_steps, episode+1, FLAGS.num_episodes, total_reward))
         
 
         # 计算平均 reward
-        episode_reward.append(total_reward)
-        mean_100ep_reward = round(np.mean(episode_reward[-100:]), 1)
-        writer.add_scalar('Mean_Reward' + agent.name, mean_100ep_reward, episode)
+        # episode_cost.append(reward)
+        # mean_100ep_cost = round(np.mean(episode_cost[-100:]), 1)
+        # mean_costs.append(mean_100ep_cost)
+
+        # Test.
+        costs = []
+        max_step = env._col * 2
+        for i in range(5):
+            obs = env.reset()
+            step = 0
+            while True:
+                state = obs2state(obs)
+                action = agent.select_action(state, mode='test')
+                _, reward = env.step(action)
+
+                if int(action) == 4 or step >= max_step:
+                    costs.append(-1 * reward)
+                    break
+                step += 1
         
+        cwriter.add_scalar('Test_Cost', np.mean(costs), episode)
+
+    agent.save_model(agent.name + '_' + str(FLAGS.learning_rate) + '.pkl')
     env.close()
     
-    # 保存模型
-    agent.save_model('dqn3_' + str(FLAGS.learning_rate) + '.pkl')
-    return
-
 if __name__ == '__main__':
     app.run(run)

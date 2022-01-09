@@ -7,18 +7,22 @@ import torch.nn.functional as F
 
 from algorithms.utils.memory import ReplayMemory, Transition
 from torch.utils.tensorboard import SummaryWriter
-import time
-writer = SummaryWriter(log_dir='logs/dloss' + str(int(time.time())))
 
-class DuelingDQN(nn.Module):
-    def __init__(self, in_dims, in_channels=3, n_actions=9):
+from algorithms.vit import ViT
+import time
+writer = SummaryWriter(log_dir='logs/vloss' + str(int(time.time())))
+
+class VDuelingDQN(nn.Module):
+    def __init__(self, in_dims, patch_size=(80, 80), in_channels=3, n_actions=9):
         """
         Initialize Deep Q Network
 
         :param in_channels (int): number of input channels
         :param n_actions (int): number of outputs
         """
-        super(DuelingDQN, self).__init__()
+        super(VDuelingDQN, self).__init__()
+        self._vit = ViT(image_size=(in_dims[0], in_dims[1]), patch_size=patch_size, num_classes=128,
+                       dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=0.1, emb_dropout=0.1)
         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=7, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
@@ -36,11 +40,13 @@ class DuelingDQN(nn.Module):
         
     def forward(self, x):
         x = x.float() / 255
+        y = self._vit(x.permute(0, 2, 3, 1))
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = F.relu(self.fc4(x.view(x.size(0), -1)))
         x = F.relu(self.fc5(x))
+        x = x + y
         adv = self.head_adv(x)
         val = self.head_val(x).expand(-1, adv.size(1))
         out = val + adv - adv.mean(1, keepdim=True).expand(-1, adv.size(1))
@@ -64,13 +70,13 @@ class Agent:
         self.replace = replace
         self.device = device
 
-        self.main_net = DuelingDQN(in_dims=input_dims, in_channels=in_channels, n_actions=self.n_actions).to(self.device)
-        self.target_net = DuelingDQN(in_dims=input_dims, in_channels=in_channels, n_actions=self.n_actions).to(self.device)
+        self.main_net = VDuelingDQN(in_dims=input_dims, in_channels=in_channels, n_actions=self.n_actions).to(self.device)
+        self.target_net = VDuelingDQN(in_dims=input_dims, in_channels=in_channels, n_actions=self.n_actions).to(self.device)
 
         self.target_net.load_state_dict(self.main_net.state_dict())
 
         # print(self.main_net)
-        self.name = 'D3QN'
+        self.name = 'VD3QN'
         print(self.name + ' inited...')
 
         self.optimizer = optim.Adam(self.main_net.parameters(), lr=lr)

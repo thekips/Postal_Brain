@@ -7,8 +7,20 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import yaml
 import json
-
+import scipy.stats as stats
 CWD = os.path.dirname(__file__) + '/'
+
+def zscore(x: Dict):
+    x = sorted(x.items(), key=lambda z : z[0])
+    x = [-z[1] for z in x]
+    x = stats.zscore(x)
+    dim = int(pow(len(x), 0.5))
+    res = [[0 for i in range(dim)] for j in range(dim)]
+    for i in range(dim):
+        for j in range(dim):
+            res[i][j] = float(x[dim * i + j])
+    
+    return res
 
 # def calDeliverCost(x: DataFrame, ratio: float):
 #     '''
@@ -99,6 +111,8 @@ class EnvInfo(object):
         self.__process()
         with open(CWD + 'dist/true_opt_value.json') as f:
             self.opt_value = json.load(f)
+        self.opt_value = zscore(self.opt_value)
+        
 
         # some information should share with environment.
         # self.__dist_path = CWD + dist_path

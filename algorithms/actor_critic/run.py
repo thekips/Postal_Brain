@@ -5,7 +5,7 @@ from absl import app, flags
 
 #local import
 sys.path.append(os.getcwd())
-from environments.world import World
+from environments.world import ABSWorld
 from algorithms.actor_critic.a2c_loc import A2C, PolicyValueNet
 from algorithms import experiment
 from utils.gpn_tsp import Attention, LSTM, GPN
@@ -35,7 +35,7 @@ def run(_):
     '''Runing experiment in a2c(output the action) by pytorch...'''
     print(FLAGS.comment)
 
-    env = World(FLAGS.max_steps, tsp_model, FLAGS.seed, FLAGS.n_action)
+    env = ABSWorld(FLAGS.max_steps, tsp_model, FLAGS.seed, FLAGS.n_action)
 
     vit_odim = 64
     agent = A2C(

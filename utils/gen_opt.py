@@ -50,6 +50,7 @@ def getCenterPoint(data, num):
 
 
 def calTime(start_point, precision=1000, isplot=False):
+
     xx = data["lat"].to_numpy()
     yy = data["lng"].to_numpy()
     xx = np.insert(xx, 0, start_point[0])
@@ -153,7 +154,7 @@ fig.canvas.draw()
 plt.show(block=False)
 plt.pause(0.05)
 #%%
-point_x, point_y = getCenterPoint(data, 100)
+point_x, point_y = getCenterPoint(data, 10)
 path = "opt_value.json"
 
 points = []
