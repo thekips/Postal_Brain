@@ -35,7 +35,7 @@ def run(_):
     '''Runing experiment in a2c(output the action) by pytorch...'''
     print(FLAGS.comment)
 
-    env = ABSWorld(FLAGS.max_steps, tsp_model, FLAGS.seed, FLAGS.n_action)
+    env = ABSWorld(FLAGS.max_steps, FLAGS.seed, FLAGS.n_action)
 
     vit_odim = 64
     agent = A2C(

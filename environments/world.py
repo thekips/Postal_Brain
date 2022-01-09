@@ -1,18 +1,13 @@
-from abc import abstractmethod
 import enum
-from matplotlib import colors
-
-from numpy import random
-
-import matplotlib.pyplot as plt
 import dm_env
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-# from abc import abstractmethod
+from numpy import random
+from abc import abstractmethod
 
 from environments.base import Environment
 from utils.env_info import env_info
-from utils.heatmap import Image
 
 class StandardActions(enum.IntEnum):
     NORTHWEST = 0; NORTH = 1; NORTHEAST = 2
@@ -64,10 +59,10 @@ res = [[0 for i in range(grid_size)] for j in range(grid_size)]
 
 for i in range(0, grid_size, 1):
     for j in range(0, grid_size, 1):
-        res[i][j] = env_info.opt_value[grid_size - 1 - i][j]
+        res[i][j] = env_info.reward[grid_size - 1 - i][j]
         
 def generate_reward(col, rec):
-    return env_info.opt_value[grid_size - 1 - rec][col]
+    return env_info.reward[grid_size - 1 - rec][col]
 
 
 class World(Environment):

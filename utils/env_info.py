@@ -110,8 +110,8 @@ class EnvInfo(object):
         self.__get_agent(configs)
         self.__process()
         with open(CWD + 'dist/true_opt_value.json') as f:
-            self.opt_value = json.load(f)
-        self.opt_value = zscore(self.opt_value)
+            self.reward = json.load(f)
+        self.reward = zscore(self.reward)
         
 
         # some information should share with environment.
@@ -130,7 +130,7 @@ class EnvInfo(object):
     def __process(self):
         print("have read %d records" % len(self._data))
         x = self._data.iloc[:1000].groupby(['lng','lat']).sum()
-        print("after del, %d records" % len(x))
+        print("after delete dulplicate, %d records" % len(x))
 
         location = x.index.to_numpy()
         self.objects_wei = x['重量'].to_numpy()

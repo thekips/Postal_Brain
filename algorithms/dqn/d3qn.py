@@ -1,14 +1,15 @@
+import time
 import random
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-
-from algorithms.utils.memory import ReplayMemory, Transition
 from torch.utils.tensorboard import SummaryWriter
-import time
 writer = SummaryWriter(log_dir='logs/dloss' + str(int(time.time())))
+
+#Local Import
+from algorithms.utils.memory import ReplayMemory, Transition
 
 class DuelingDQN(nn.Module):
     def __init__(self, in_dims, in_channels=3, n_actions=9):
@@ -92,7 +93,6 @@ class Agent:
         if epsilon <= np.random.uniform(0, 1) or mode == 'test':
             self.main_net.eval()
             with torch.no_grad():
-                
                 action = self.main_net(state.to('cuda')).max(1)[1].view(1, 1)
                 # _action = self.main_net(state.to('cuda'))
                 # print(_action)

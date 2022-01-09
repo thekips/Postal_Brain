@@ -1,21 +1,16 @@
-from concurrent.futures.process import ProcessPoolExecutor
-from torch.multiprocessing import set_start_method
-set_start_method('spawn')
-from itertools import count
+import os
+import sys
 import numpy as np
 import time
 import torch
-
-import sys
 from absl import app, flags
-
-#local import
-import os
+from itertools import count
+from torch.utils.tensorboard import SummaryWriter
 sys.path.append(os.getcwd())
+
+# Local import
 from algorithms.dqn.wrappers import make_env
 from environments.world import ABSWorld, RELWorld
-# from utils.gpn_tsp import Attention, LSTM, GPN
-from torch.utils.tensorboard import SummaryWriter
 
 
 flags.DEFINE_string('comment', 'Train with A2C model.', 'comment you want to print.')
@@ -57,7 +52,7 @@ def obs2state(obs):
     return state.unsqueeze(0)
 
 def run(_):
-    env = ABSWorld(FLAGS.max_steps, None, FLAGS.seed, FLAGS.n_action)
+    env = ABSWorld(FLAGS.max_steps, FLAGS.seed, FLAGS.n_action)
 
     if FLAGS.model == 1:
         from algorithms.dqn.d3qn import Agent
@@ -65,6 +60,9 @@ def run(_):
     elif FLAGS.model == 2:
         from algorithms.dqn.vd3qn import Agent
         cwriter = SummaryWriter('logs/vtrain' + str(int(time.time())))
+    elif FLAGS.model == 3:
+        from algorithms.dqn.d3qn_v import Agent
+        cwriter = SummaryWriter('logs/train_v' + str(int(time.time())))
 
     agent = Agent(
         discount=FLAGS.discount,
@@ -86,7 +84,6 @@ def run(_):
 
         # 记录 reward
         total_reward = 0.0
-
         for _ in count():
             n_steps += 1
 
@@ -108,17 +105,12 @@ def run(_):
             if n_steps % 100 == 0:
                 break
 
-        print('Total steps: {} \t Episode: {}/{} \t Total reward: {}'.format(n_steps, episode+1, FLAGS.num_episodes, total_reward))
+        print('Total steps: {} \t Episode: {}/{} \t Mean reward: {}'.format(n_steps, episode+1, FLAGS.num_episodes, total_reward / 100))
         
 
-        # 计算平均 reward
-        # episode_cost.append(reward)
-        # mean_100ep_cost = round(np.mean(episode_cost[-100:]), 1)
-        # mean_costs.append(mean_100ep_cost)
-
         # Test.
-        costs = []
-        max_step = env._col * 2
+        rewards = []
+        max_step = env._col
         for i in range(5):
             obs = env.reset()
             step = 0
@@ -128,11 +120,11 @@ def run(_):
                 _, reward = env.step(action)
 
                 if int(action) == 4 or step >= max_step:
-                    costs.append(-1 * reward)
+                    rewards.append(reward)
                     break
                 step += 1
         
-        cwriter.add_scalar('Test_Cost', np.mean(costs), episode)
+        cwriter.add_scalar('Test_Cost', np.mean(rewards), episode)
 
     agent.save_model(agent.name + '_' + str(FLAGS.learning_rate) + '.pkl')
     env.close()

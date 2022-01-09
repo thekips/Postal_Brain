@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter(log_dir='logs/vloss' + str(int(time.time())))
+writer = SummaryWriter(log_dir='logs/loss_v' + str(int(time.time())))
 
 # Local Import
 from algorithms.vit import ViT
@@ -23,30 +23,12 @@ class VDuelingDQN(nn.Module):
         super(VDuelingDQN, self).__init__()
         self._vit = ViT(image_size=(in_dims[0], in_dims[1]), patch_size=patch_size, num_classes=128,
                        dim=1024, depth=6, heads=16, mlp_dim=2048, dropout=0.1, emb_dropout=0.1)
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=7, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-
-        def conv2d_out_size(input, kernel_size, stride, padding=0):
-            return (input + padding * 2 - kernel_size) // stride + 1
-        convw = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[0], 7, 4), 3, 2), 3, 1)
-        convh = conv2d_out_size(conv2d_out_size(conv2d_out_size(in_dims[1], 7, 4), 3, 2), 3, 1)
-
-        self.fc4 = nn.Linear(64 * convw * convh, 512)
-
-        self.fc5 = nn.Linear(512, 128)
         self.head_val = nn.Linear(128, 1)   # V值
         self.head_adv = nn.Linear(128, n_actions)   # Advance值
         
     def forward(self, x):
         x = x.float() / 255
-        y = self._vit(x.permute(0, 2, 3, 1))
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.fc4(x.view(x.size(0), -1)))
-        x = F.relu(self.fc5(x))
-        x = x + y
+        x = self._vit(x.permute(0, 2, 3, 1))
         adv = self.head_adv(x)
         val = self.head_val(x).expand(-1, adv.size(1))
         out = val + adv - adv.mean(1, keepdim=True).expand(-1, adv.size(1))
@@ -76,7 +58,7 @@ class Agent:
         self.target_net.load_state_dict(self.main_net.state_dict())
 
         # print(self.main_net)
-        self.name = 'VD3QN'
+        self.name = '_VD3QN'
         print(self.name + ' inited...')
 
         self.optimizer = optim.Adam(self.main_net.parameters(), lr=lr)
