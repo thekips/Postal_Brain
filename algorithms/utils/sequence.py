@@ -1,6 +1,8 @@
 """A simple windowed buffer for accumulating sequences."""
 
 from typing import NamedTuple
+
+from torch import float64
 from utils.typedef import Spec
 
 import dm_env
@@ -40,10 +42,10 @@ class Buffer:
   ):
     """Pre-allocates buffers of numpy arrays to hold the sequences."""
     self._observations = np.zeros(
-        shape=(max_sequence_length + 1, *obs_spec.shape), dtype=obs_spec.dtype)
+        shape=(max_sequence_length + 1, *obs_spec), dtype=np.float64)
     self._actions = np.zeros(
-        shape=(max_sequence_length, *action_spec.shape),
-        dtype=action_spec.dtype)
+        shape=(max_sequence_length, action_spec),
+        dtype=int)
     self._rewards = np.zeros(max_sequence_length, dtype=np.float32)
     self._discounts = np.zeros(max_sequence_length, dtype=np.float32)
 

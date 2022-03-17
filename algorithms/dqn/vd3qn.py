@@ -40,7 +40,7 @@ class VDuelingDQN(nn.Module):
         
     def forward(self, x):
         x = x.float() / 255
-        y = self._vit(x.permute(0, 2, 3, 1))
+        y = self._vit(x)
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
@@ -93,7 +93,7 @@ class Agent:
             if self.n_steps % self.replace == 0:
                 self.update_target()
 
-        epsilon = 0.5 * (1 / (self.n_steps / 10 + 1))
+        epsilon = (1 / (self.n_steps / 10 + 1))
 
         if epsilon <= np.random.uniform(0, 1) or mode == 'test':
             self.main_net.eval()
@@ -103,6 +103,12 @@ class Agent:
             action = torch.tensor([[random.randrange(self.n_actions)]], device=self.device, dtype=torch.long)
 
         return action
+
+    def get_qvalue(self, state):
+        self.main_net.eval()
+        with torch.no_grad():
+            qvalue = self.main_net(state.to('cuda'))
+        return qvalue
 
     def update(self):
         """
@@ -167,8 +173,7 @@ class Agent:
         # print("loss is:", loss)
         # print(self.state_action_values.squeeze())
         # print(self.expected_state_action_values)
-        writer.add_scalar('Loss_Per_Step', loss.item(), self.n_steps)
-        self.n_steps += 1
+        writer.add_scalar('Loss_Step', loss.item(), self.n_steps)
         self.optimizer.zero_grad()
 
         loss.backward()

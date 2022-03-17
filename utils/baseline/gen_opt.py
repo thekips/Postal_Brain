@@ -78,7 +78,7 @@ def writeRes(key, value, path):
 data = pd.read_csv('../data/env.csv')
 data = data.drop_duplicates(['lng', 'lat'], keep='first')
 data = data.iloc[:1000]
-print("thekips: len of data is %d." % len(data))
+print("Len of data is %d." % len(data))
 
 #%%
 point_x, point_y = getCenterPoint(data, 10)

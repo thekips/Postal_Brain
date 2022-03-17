@@ -99,7 +99,7 @@ def writeRes(key, value, path):
 data = pd.read_csv("data/env.csv")
 data = data.drop_duplicates(["lng", "lat"], keep="first")
 data = data.iloc[:1000]
-print("thekips: len of data is %d." % len(data))
+print("Len of data is %d." % len(data))
 
 #%%
 import time
@@ -110,6 +110,16 @@ print("point is:", point)
 tour = calTime(point, 1000, True)
 print(time.time() - a)
 
+#%%
+point = (22.30879190138971, 112.37251670934572)
+calTime(point, 1000, True)
+
+#%%
+import json
+with open('dist/100_opt_value.json', 'r') as f:
+    temp = json.load(f)
+key = min(temp, key=temp.get)
+print(key, temp[key])
 #%%
 point_x, point_y = getCenterPoint(data, 100)
 path = "opt_value.json"

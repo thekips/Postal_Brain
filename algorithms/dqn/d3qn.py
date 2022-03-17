@@ -88,7 +88,7 @@ class Agent:
             if self.n_steps % self.replace == 0:
                 self.update_target()
 
-        epsilon = 0.5 * (1 / (self.n_steps / 10 + 1))
+        epsilon = (1 / (self.n_steps / 10 + 1))
 
         if epsilon <= np.random.uniform(0, 1) or mode == 'test':
             self.main_net.eval()
@@ -103,6 +103,12 @@ class Agent:
             action = torch.tensor([[random.randrange(self.n_actions)]], device=self.device, dtype=torch.long)
 
         return action
+
+    def get_qvalue(self, state):
+        self.main_net.eval()
+        with torch.no_grad():
+            qvalue = self.main_net(state.to('cuda'))
+        return qvalue
 
     def update(self):
         """
@@ -128,10 +134,9 @@ class Agent:
         actions = tuple((map(lambda a: torch.tensor([[a]], device=self.device), batch.action)))
         rewards = tuple((map(lambda r: torch.tensor([r], device=self.device), batch.reward)))
 
-        non_final_next_states = torch.cat([s for s in batch.next_state
-                                           if s is not None]).to('cuda')
+        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None]).to(self.device)
 
-        state_batch = torch.cat(batch.state).to('cuda')
+        state_batch = torch.cat(batch.state).to(self.device)
         action_batch = torch.cat(actions)
         reward_batch = torch.cat(rewards)
 
@@ -167,8 +172,7 @@ class Agent:
         # print("loss is:", loss)
         # print(self.state_action_values.squeeze())
         # print(self.expected_state_action_values)
-        writer.add_scalar('Loss_Per_Step', loss.item(), self.n_steps)
-        self.n_steps += 1
+        writer.add_scalar('Loss_Step', loss.item(), self.n_steps)
         self.optimizer.zero_grad()
 
         loss.backward()

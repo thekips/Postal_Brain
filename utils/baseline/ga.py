@@ -20,7 +20,7 @@ path = os.getcwd() + "/../data/env.csv"
 data = pd.read_csv(path)
 data = data.drop_duplicates(subset=["lat", "lng"], keep="first")
 data = data.iloc[:1000]
-print("thekips: the len of data is:", len(data))
+print("Len of data is:", len(data))
 lng = data["lng"].to_numpy()
 lat = data["lat"].to_numpy()
 max_lng, min_lng = lng.max(), lng.min()

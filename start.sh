@@ -1,2 +1,19 @@
-time=$(date | awk '{OFS="-"}{print $2, $3, $4}')
-nohup python -u algorithms/actor_critic/run.py --time=$time --comment=$1 > logs/$time.log &
+python algorithms/dqn/run.py --model=1 --num_episodes=200;
+python algorithms/dqn/run.py --model=2 --num_episodes=200;
+python algorithms/dqn/run.py --model=3 --num_episodes=200;
+
+python algorithms/dqn/run.py --model=1 --num_episodes=200;
+python algorithms/dqn/run.py --model=2 --num_episodes=200;
+python algorithms/dqn/run.py --model=3 --num_episodes=200;
+
+python algorithms/dqn/run.py --model=1 --num_episodes=200;
+python algorithms/dqn/run.py --model=2 --num_episodes=200;
+python algorithms/dqn/run.py --model=3 --num_episodes=200;
+
+python algorithms/dqn/run.py --model=1 --num_episodes=200;
+python algorithms/dqn/run.py --model=2 --num_episodes=200;
+python algorithms/dqn/run.py --model=3 --num_episodes=200;
+
+python algorithms/dqn/run.py --model=1 --num_episodes=200;
+python algorithms/dqn/run.py --model=2 --num_episodes=200;
+python algorithms/dqn/run.py --model=3 --num_episodes=200;

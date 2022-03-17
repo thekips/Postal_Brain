@@ -9,11 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 sys.path.append(os.getcwd())
 
 # Local import
-from algorithms.dqn.wrappers import make_env
 from environments.world import ABSWorld, RELWorld
-
-
-flags.DEFINE_string('comment', 'Train with A2C model.', 'comment you want to print.')
 
 # Environment.
 flags.DEFINE_integer('max_steps', 1000, 'steps for agent to try in the environment')
@@ -29,13 +25,12 @@ flags.DEFINE_integer('num_units', 64, 'number of units per hidden layer')
 flags.DEFINE_integer('mem_size', 10000, 'limit of memory')
 flags.DEFINE_integer('batch_size', 32, 'mumber of transitions to batch')
 flags.DEFINE_integer('replace', 1000, 'Interval for replacing target network')
-
+flags.DEFINE_integer('model', 1, 'choose model')
 flags.DEFINE_float('learning_rate', 1e-4, 'the learning rate')
 flags.DEFINE_float('discount', .99, 'discounting on the agent side')
-flags.DEFINE_integer('model', 1, 'choose model')
+flags.DEFINE_string('comment', 'Train with A2C model.', 'comment you want to print.')
 
 FLAGS = flags.FLAGS
-
 
 use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
@@ -106,7 +101,7 @@ def run(_):
                 break
 
         print('Total steps: {} \t Episode: {}/{} \t Mean reward: {}'.format(n_steps, episode+1, FLAGS.num_episodes, total_reward / 100))
-        
+        cwriter.add_scalar('Mean_Reward_' + agent.name, total_reward / 100, episode + 1)
 
         # Test.
         rewards = []
@@ -124,7 +119,7 @@ def run(_):
                     break
                 step += 1
         
-        cwriter.add_scalar('Test_Cost', np.mean(rewards), episode)
+        cwriter.add_scalar('Compare_Rewards' + agent.name, np.mean(rewards), episode)
 
     agent.save_model(agent.name + '_' + str(FLAGS.learning_rate) + '.pkl')
     env.close()

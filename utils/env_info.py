@@ -18,7 +18,7 @@ def zscore(x: Dict):
     res = [[0 for i in range(dim)] for j in range(dim)]
     for i in range(dim):
         for j in range(dim):
-            res[i][j] = float(x[dim * i + j])
+            res[i][j] = 10 * float(x[dim * i + j])
     
     return res
 

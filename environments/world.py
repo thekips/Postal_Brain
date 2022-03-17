@@ -107,7 +107,7 @@ class World(Environment):
     def _process(self):
         data = env_info._data.drop_duplicates(['lng', 'lat'], keep='first')
         data = data.iloc[:1000]
-        print("thekips: len of data is %d." % len(data))
+        print("Len of data is %d." % len(data))
         xx = data['lat'].to_numpy()
         xx = grid_size * (xx - xx.min()) / (xx.max() - xx.min())
         yy = data['lng'].to_numpy()
@@ -136,7 +136,7 @@ class World(Environment):
         fig.canvas.draw()
         if isplot:
             plt.show(block=False)
-            plt.pause(10)
+            plt.pause(0.02)
         self.observation = np.frombuffer(fig.canvas.tostring_rgb(),dtype=np.uint8).reshape(fig.canvas.get_width_height()[::-1] + (3,))
         # image = Image(self._agent_loc, self._object_loc)
         # self.observation = image.getHeatMap(color)
@@ -159,7 +159,7 @@ class World(Environment):
     def _step(self, action):
         pass
 
-    def _draw_item(self, pos=(7, 6), mode='scatter', is_patch=False, cbar=False, fmt='%.2f'):
+    def _draw_item(self, pos=(7, 6), mode='scatter', is_patch=False, cbar=False):
         
         plt.cla()
         plt.rcParams['savefig.facecolor']='#efefef'
